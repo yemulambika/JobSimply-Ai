@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  email         String        @unique
+  passwordHash  String
+  name          String?
+  role          String        @default("user")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  resumes       Resume[]
+  applications  Application[]
+  savedJobs     SavedJob[]
+  resumeEmbeds  ResumeEmbedding[]
+  jobEmbeds     JobEmbedding[]
+}
+
+model Resume {
+  id              Int               @id @default(autoincrement())
+  userId          Int
+  title           String
+  content         String
+  fileUrl         String?
+  originalText    String?
+  parsedData      Json?
+  skills          Json?
+  experience      Json?
+  education       Json?
+  projects        Json?
+  summary         String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  user            User              @relation(fields: [userId], references: [id])
+  applications    Application[]
+  embeddings      ResumeEmbedding[]
+}
+
+model Job {
+  id              Int               @id @default(autoincrement())
+  title           String
+  company         String
+  location        String?
+  description     String
+  url             String?
+  source          String?           @default("manual")
+  salary          String?
+  employmentType  String?
+  isRemote        Boolean           @default(false)
+  skills          Json?
+  benefits        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  applications    Application[]
+  savedBy         SavedJob[]
+  embeddings      JobEmbedding[]
+}
+
+model Application {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  jobId           Int
+  resumeId        Int
+  status          String    @default("applied")
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  user            User      @relation(fields: [userId], references: [id])
+  job             Job       @relation(fields: [jobId], references: [id])
+  resume          Resume    @relation(fields: [resumeId], references: [id])
+}
+
+model SavedJob {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  jobId           Int
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+  job             Job       @relation(fields: [jobId], references: [id])
+}
+
+model ResumeEmbedding {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  resumeId        Int
+  embedding       String
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+  resume          Resume    @relation(fields: [resumeId], references: [id])
+}
+
+model JobEmbedding {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  jobId           Int
+  embedding       String
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+  job             Job       @relation(fields: [jobId], references: [id])
+}

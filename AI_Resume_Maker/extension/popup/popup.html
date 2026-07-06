@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobSimply - Job Assistant</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="logo">✨</div>
+      <h1 class="title">JobSimply</h1>
+    </header>
+
+    <!-- Not Logged In State -->
+    <div id="auth-section" class="section">
+      <p class="auth-message">Please sign in to JobSimply</p>
+      <button id="open-website-btn" class="btn primary">Open JobSimply</button>
+    </div>
+
+    <!-- Logged In State - Auto detects job -->
+    <div id="dashboard-section" class="section hidden">
+      <!-- Job Info - Auto detected -->
+      <div id="job-card" class="job-card hidden">
+        <h2 id="job-title" class="job-title">No job detected</h2>
+        <p id="job-company" class="job-company"></p>
+        <p id="job-location" class="job-location"></p>
+        <p id="job-salary" class="job-salary"></p>
+        <p id="job-experience" class="job-experience"></p>
+        <div id="job-skills-section" class="job-skills-section hidden">
+          <h3 class="section-title">Skills Required</h3>
+          <ul id="job-skills" class="skills-list"></ul>
+        </div>
+        <p id="job-url" class="job-url"></p>
+      </div>
+
+      <!-- Status Messages -->
+      <div id="status-message" class="status-message hidden"></div>
+      
+      <!-- Action Buttons -->
+      <div class="actions">
+        <button id="customize-resume-btn" class="btn primary hidden">Customize Resume</button>
+        <button id="open-jobs-btn" class="btn secondary">Open Jobs Page</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

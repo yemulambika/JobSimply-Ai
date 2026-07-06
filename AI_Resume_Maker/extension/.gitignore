@@ -1,0 +1,12 @@
+# Extension build files
+*.crx
+*.xpi
+
+# Icons (built separately)
+icons/*.png
+
+# Logs
+*.log
+
+# Environment
+.env
