@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import api from '../services/api';
 import SectionTitle from '../components/SectionTitle';
 
@@ -25,7 +24,7 @@ export default function JobsPage() {
       if (searchParams.remote) params.append('remote', 'true');
       params.append('page', page.toString());
 
-      const response = await axios.get(`http://localhost:5000/api/jobs?${params.toString()}`);
+      const response = await api.get(`/api/jobs?${params.toString()}`);
       setJobs(response.data.jobs);
       setLoading(false);
     } catch (err) {
