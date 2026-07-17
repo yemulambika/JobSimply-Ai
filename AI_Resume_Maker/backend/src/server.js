@@ -15,7 +15,14 @@ const allowedOrigins = env.clientOrigin.split(',').map(o => o.trim());
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('chrome-extension://')) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.startsWith('chrome-extension://') ||
+        origin.includes('.replit.dev') ||
+        origin.includes('.repl.co') ||
+        origin.includes('.replit.app')
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
