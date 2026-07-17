@@ -36,6 +36,39 @@ async function runMigration() {
       ON CONFLICT (id) DO NOTHING
     `);
 
+    // Advance the SERIAL sequence past the manually-seeded id=1 so new
+    // registrations don't collide with the default user (fixes User_pkey error).
+    console.log('Syncing User id sequence...');
+    await client.query(`
+      SELECT setval(
+        pg_get_serial_sequence('"User"', 'id'),
+        GREATEST((SELECT MAX(id) FROM "User"), 1)
+      )
+    `);
+
+    // 2b. Extended profile fields on User (used by profileController autofill)
+    console.log('Ensuring extended profile columns on User table...');
+    await client.query(`
+      ALTER TABLE "User"
+        ADD COLUMN IF NOT EXISTS "firstName" TEXT,
+        ADD COLUMN IF NOT EXISTS "lastName" TEXT,
+        ADD COLUMN IF NOT EXISTS phone TEXT,
+        ADD COLUMN IF NOT EXISTS address TEXT,
+        ADD COLUMN IF NOT EXISTS city TEXT,
+        ADD COLUMN IF NOT EXISTS state TEXT,
+        ADD COLUMN IF NOT EXISTS country TEXT,
+        ADD COLUMN IF NOT EXISTS zip TEXT,
+        ADD COLUMN IF NOT EXISTS linkedin TEXT,
+        ADD COLUMN IF NOT EXISTS github TEXT,
+        ADD COLUMN IF NOT EXISTS portfolio TEXT,
+        ADD COLUMN IF NOT EXISTS "currentCompany" TEXT,
+        ADD COLUMN IF NOT EXISTS designation TEXT,
+        ADD COLUMN IF NOT EXISTS experience JSONB,
+        ADD COLUMN IF NOT EXISTS education JSONB,
+        ADD COLUMN IF NOT EXISTS skills JSONB,
+        ADD COLUMN IF NOT EXISTS certifications JSONB
+    `);
+
     // 3. Create Resume table
     console.log('Creating Resume table...');
     await client.query(`
@@ -257,6 +290,166 @@ async function runMigration() {
     console.log('Adding isActive column to Resume table...');
     await client.query(`
       ALTER TABLE "Resume" ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT false
+    `);
+
+    // 14. Ensure Application has a unique (userId, jobId) for ON CONFLICT fallback
+    console.log('Ensuring Application unique constraint...');
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'Application_userId_jobId_key'
+        ) THEN
+          ALTER TABLE "Application"
+            ADD CONSTRAINT "Application_userId_jobId_key" UNIQUE ("userId", "jobId");
+        END IF;
+      END $$;
+    `);
+
+    // ---------------------------------------------------------------------
+    // Repository-layer tables (snake_case). These are queried directly by
+    // repositories/index.js, aiPipeline.js, jobAnalysisController.js and
+    // atsExporter.js but were previously never created.
+    // ---------------------------------------------------------------------
+
+    // 15. master_resume
+    console.log('Creating master_resume table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "master_resume" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "parsedData" JSONB,
+        "originalText" TEXT,
+        name TEXT,
+        email TEXT,
+        phone TEXT,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE ("userId")
+      )
+    `);
+
+    // 16. job_analyses
+    console.log('Creating job_analyses table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "job_analyses" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        title TEXT,
+        company TEXT,
+        location TEXT,
+        salary TEXT,
+        "employmentType" TEXT,
+        "isRemote" BOOLEAN DEFAULT false,
+        "atsKeywords" JSONB,
+        "requiredSkills" JSONB,
+        "preferredSkills" JSONB,
+        "niceToHave" JSONB,
+        industry TEXT,
+        responsibilities TEXT,
+        description TEXT,
+        url TEXT,
+        source TEXT,
+        "matchScore" INTEGER,
+        "atsScore" INTEGER,
+        "experienceMatch" INTEGER,
+        "educationMatch" INTEGER,
+        "skillsMatch" INTEGER,
+        "projectMatch" INTEGER,
+        "missingSkills" JSONB,
+        "matchedSkills" JSONB,
+        "resumeWeaknesses" JSONB,
+        "resumeStrengths" JSONB,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 17. resume_versions
+    console.log('Creating resume_versions table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "resume_versions" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "masterResumeId" INTEGER REFERENCES "master_resume"(id) ON DELETE SET NULL,
+        "jobId" INTEGER,
+        "tailoredData" JSONB,
+        "atsScore" INTEGER,
+        "matchScore" INTEGER,
+        "missingSkills" JSONB,
+        "matchedSkills" JSONB,
+        changes JSONB,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 18. saved_jobs (superset of columns used by repo + jobAnalysisController)
+    console.log('Creating saved_jobs table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "saved_jobs" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        title TEXT,
+        company TEXT,
+        location TEXT,
+        salary TEXT,
+        experience TEXT,
+        "employmentType" TEXT,
+        "isRemote" BOOLEAN DEFAULT false,
+        skills JSONB,
+        description TEXT,
+        url TEXT,
+        source TEXT,
+        platform TEXT,
+        "atsScore" INTEGER,
+        "matchScore" INTEGER,
+        status TEXT DEFAULT 'saved',
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE ("userId", url)
+      )
+    `);
+
+    // 19. cover_letters
+    console.log('Creating cover_letters table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "cover_letters" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "masterResumeId" INTEGER REFERENCES "master_resume"(id) ON DELETE SET NULL,
+        "jobId" INTEGER,
+        title TEXT,
+        company TEXT,
+        position TEXT,
+        content TEXT,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 20. activity
+    console.log('Creating activity table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "activity" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        details JSONB,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 21. ExportHistory
+    console.log('Creating ExportHistory table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "ExportHistory" (
+        id SERIAL PRIMARY KEY,
+        "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        "resumeId" INTEGER,
+        "tailoredResumeId" INTEGER,
+        "coverLetterId" INTEGER,
+        format TEXT NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     console.log('Database migration completed successfully!');

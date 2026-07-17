@@ -1,4 +1,5 @@
 import { getPool } from '../services/postgres.js';
+import { geminiText, isGeminiConfigured } from '../services/ai/geminiClient.js';
 
 // POST /coverletters - Generate cover letter
 export const generateCoverLetter = async (req, res, next) => {
@@ -145,7 +146,10 @@ Write a professional cover letter (3-4 paragraphs) that:
 Return as plain text (not JSON).`;
 
   try {
-    if (process.env.GROQ_API_KEY) {
+    if (isGeminiConfigured()) {
+      const text = await geminiText(prompt);
+      return text || 'Cover letter could not be generated.';
+    } else if (process.env.GROQ_API_KEY) {
       const Groq = (await import('groq-sdk')).default;
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const completion = await groq.chat.completions.create({

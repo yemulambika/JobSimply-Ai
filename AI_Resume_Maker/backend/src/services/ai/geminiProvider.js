@@ -13,7 +13,7 @@ export async function extractResume(resumeText) {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-flash-latest',
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     generationConfig: { responseMimeType: 'application/json' }
   });
 

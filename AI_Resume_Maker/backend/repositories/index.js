@@ -1,6 +1,6 @@
 // Backend Repository Pattern - All database operations
 
-import { getPool } from './postgres.js';
+import { getPool } from '../services/postgres.js';
 
 // Master Resume Repository
 export class MasterResumeRepository {

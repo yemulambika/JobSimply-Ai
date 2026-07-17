@@ -1,4 +1,5 @@
 import { getPool } from '../services/postgres.js';
+import { geminiJSON, isGeminiConfigured } from '../services/ai/geminiClient.js';
 
 // POST /emails - Generate email
 export const generateEmail = async (req, res, next) => {
@@ -128,7 +129,9 @@ Return a JSON object with:
 Format as valid JSON only.`;
 
   try {
-    if (process.env.GROQ_API_KEY) {
+    if (isGeminiConfigured()) {
+      return await geminiJSON(prompt);
+    } else if (process.env.GROQ_API_KEY) {
       const Groq = (await import('groq-sdk')).default;
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const completion = await groq.chat.completions.create({
