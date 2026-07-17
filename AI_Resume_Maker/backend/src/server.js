@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { startJobCron } from '../services/jobCron.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -41,6 +42,8 @@ app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`AI Resume Maker API listening on port ${port}`);
+  // Start background job fetcher (runs immediately + every 6 hours)
+  startJobCron();
 });
 
 export default app;

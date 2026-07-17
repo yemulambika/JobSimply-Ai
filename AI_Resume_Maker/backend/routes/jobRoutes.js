@@ -1,5 +1,5 @@
 import express from 'express';
-import { aggregateAndStoreJobs, listStoredJobs, getJobByIdHandler } from '../controllers/jobController.js';
+import { aggregateAndStoreJobs, listStoredJobs, getJobByIdHandler, triggerFetchNow } from '../controllers/jobController.js';
 import { analyzeJob, addToLoop, getLoop, deleteFromLoop, tailorJobResume, generateJobCoverLetter } from '../controllers/jobAnalysisController.js';
 import { extractJobAndAnalyze } from '../controllers/jobExtractionController.js';
 import { getTailoredResumes, getTailoredResumeById } from '../controllers/tailoredResumeController.js';
@@ -7,6 +7,7 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 router.get('/aggregate', aggregateAndStoreJobs);
+router.post('/fetch-now', triggerFetchNow); // Manual cron trigger (admin/dev)
 router.get('/', listStoredJobs);
 router.get('/search', listStoredJobs);
 

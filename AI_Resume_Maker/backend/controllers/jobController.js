@@ -1,6 +1,7 @@
 import { getPool } from '../services/postgres.js';
 import { aggregateJobs } from '../services/jobs/JobAggregator.js';
 import { getAllJobs } from '../services/jobs/JobStorage.js';
+import { fetchAndSaveJobs } from '../services/jobCron.js';
 
 // Ensure Job table exists
 const ensureJobTable = async (client) => {
@@ -33,6 +34,23 @@ const ensureJobTable = async (client) => {
       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+};
+
+// POST /jobs/fetch-now — manually trigger the background job fetcher
+export const triggerFetchNow = async (req, res, next) => {
+  try {
+    const { query = '' } = req.body || {};
+    // Run in background so HTTP response is immediate
+    fetchAndSaveJobs(query).catch(err =>
+      console.error('[JobCron] Manual trigger error:', err.message)
+    );
+    res.status(202).json({
+      success: true,
+      message: 'Job fetch started in background. Check /api/jobs in a few seconds.',
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // GET /jobs/aggregate?query=...&location=...&remoteOnly=true|false
