@@ -58,9 +58,10 @@ export const upsertJob = async (job) => {
   const client = await getPool().connect();
   try {
     await ensureJobTable(client);
+    const now = new Date().toISOString();
     const result = await client.query(
-      `INSERT INTO "Job" (title, company, location, description, url, source, salary, "employmentType", "isRemote", skills, benefits)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO "Job" (title, company, location, description, url, source, salary, "employmentType", "isRemote", skills, benefits, "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
        ON CONFLICT (title, company, location) DO UPDATE SET
          description = EXCLUDED.description,
          url = EXCLUDED.url,
@@ -76,7 +77,7 @@ export const upsertJob = async (job) => {
         job.title,
         job.company,
         job.location,
-        job.description,
+        job.description || '',
         job.url,
         job.source || 'manual',
         job.salary,
@@ -84,6 +85,7 @@ export const upsertJob = async (job) => {
         !!job.isRemote,
         job.skills ? JSON.stringify(job.skills) : '[]',
         job.benefits ? JSON.stringify(job.benefits) : '[]',
+        now,
       ]
     );
     console.log(`Inserted/Updated job with ID: ${result.rows[0].id}`);

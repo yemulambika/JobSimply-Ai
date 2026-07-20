@@ -5,6 +5,7 @@ import resumeRoutes from './resumeRoutes.js';
 import jobRoutes from './jobRoutes.js';
 import atsRoutes from './atsRoutes.js';
 import tailorRoutes from './tailorRoutes.js';
+import semanticAtsRoutes from './semanticAtsRoutes.js';
 import coverLetterRoutes from './coverLetterRoutes.js';
 import emailRoutes from './emailRoutes.js';
 import applicationRoutes from './applicationRoutes.js';
@@ -22,6 +23,7 @@ router.use('/api/resumes', resumeRoutes); // Extension uses /api/resumes/latest
 router.use('/resumes', resumeRoutes); // Frontend compatibility
 router.use('/api/jobs', jobRoutes);
 router.use('/ats', atsRoutes);
+router.use('/semantic-ats', semanticAtsRoutes);
 router.use('/tailor', tailorRoutes);
 router.use('/api/tailor', tailorRoutes); // Extension compatibility
 router.use('/coverletters', coverLetterRoutes);
