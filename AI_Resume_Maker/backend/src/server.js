@@ -124,8 +124,29 @@ app.use(errorHandler);
 // ---------------------------------------------------------------------------
 // 6. Start server
 // ---------------------------------------------------------------------------
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`AI Resume Maker API listening on port ${port}`);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[SERVER] Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('[SERVER] Uncaught Exception:', error);
+  // Don't exit the process, just log the error
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`[SERVER] Port ${port} is already in use`);
+  } else {
+    console.error('[SERVER] Server error:', error);
+  }
 });
 
 export default app;
