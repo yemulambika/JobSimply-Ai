@@ -1,0 +1,122 @@
+{
+  "personalInfo": {
+    "name": "Ambika Yemul",
+    "email": "ambikayemul2001@gmail.com",
+    "phone": "+91-9765679908",
+    "address": "",
+    "city": "",
+    "country": ""
+  },
+  "name": "Ambika Yemul",
+  "email": "ambikayemul2001@gmail.com",
+  "phone": "+91-9765679908",
+  "links": {
+    "linkedin": "",
+    "github": "",
+    "portfolio": "",
+    "other": []
+  },
+  "skills": {
+    "cloud": ["AWS", "Docker"],
+    "devops": ["Docker", "Git", "GitHub", "Postman"],
+    "mobile": ["React Native"],
+    "backend": ["Node.js", "Express.js", "Spring Boot"],
+    "database": ["MongoDB", "MySQL", "SQL", "PostgreSQL"],
+    "frontend": ["React", "React Native"],
+    "frameworks": ["React", "Next.JS", "Django"],
+    "programming": ["React", "Next.JS", "Javascript", "TypeScript", "HTML", "CSS", "Redux", "Node.js", "Express.js", "Spring Boot", "Java", "Python"],
+    "ai": ["Natural Language Processing (NLP)"],
+    "other": []
+  },
+  "experience": [
+    {
+      "company": "Suzlon Energy LTD",
+      "designation": "FullStack Developer Intern",
+      "employmentType": "Full-time",
+      "location": "",
+      "startDate": "Aug 2024",
+      "endDate": "Aug 2025",
+      "current": false,
+      "duration": "Aug 2024 - Aug 2025",
+      "description": "Developed and optimized 10+ SQL queries, reducing execution time by 30% and improving data retrieval performance. Built interactive Power BI dashboards, enhancing decision-making with real-time analytics and improving reporting efficiency by 20%. Engineered a full-stack weather dashboard using React, Node.js, and MongoDB, integrating external APIs for real-time data. Improved application responsiveness and scalability through efficient API handling and optimized backend logic.",
+      "bullets": [
+        "Developed and optimized 10+ SQL queries, reducing execution time by 30% and improving data retrieval performance.",
+        "Built interactive Power BI dashboards, enhancing decision-making with real-time analytics and improving reporting efficiency by 20%.",
+        "Engineered a full-stack weather dashboard using React, Node.js, and MongoDB, integrating external APIs for real-time data.",
+        "Improved application responsiveness and scalability through efficient API handling and optimized backend logic."
+      ],
+      "technologies": ["React", "Node.js", "MongoDB", "SQL", "Power BI"]
+    }
+  ],
+  "projects": [
+    {
+      "title": "Loan Management System",
+      "description": "Full Stack MERN Application",
+      "technologies": ["Next.js", "TypeScript", "Ant Design", "Node.js", "Express.js", "MongoDB", "Docker"],
+      "github": "",
+      "deployment": "",
+      "demo": ""
+    },
+    {
+      "title": "AI Resume Matcher",
+      "description": "Full Stack Application",
+      "technologies": ["React.js", "Node.js", "Python", "NLP"],
+      "github": "",
+      "deployment": "",
+      "demo": ""
+    },
+    {
+      "title": "Food Ordering Mobile Application",
+      "description": "Cross-platform food ordering application",
+      "technologies": ["React Native", "Supabase"],
+      "github": "",
+      "deployment": "",
+      "demo": ""
+    },
+    {
+      "title": "Titanic Survival Prediction",
+      "description": "Machine Learning classification system to predict Titanic passenger survival using historical passenger data.",
+      "technologies": ["Scikit-Learn"],
+      "github": "",
+      "deployment": "",
+      "demo": ""
+    }
+  ],
+  "education": [
+    {
+      "degree": "BE/B.Tech/Bs",
+      "specialization": "",
+      "college": "BSIOTR JSPM College Of Engineering",
+      "university": "",
+      "location": "",
+      "cgpa": "",
+      "percentage": "",
+      "startYear": "",
+      "endYear": "",
+      "current": true,
+      "description": ""
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Scaler Academy Certification",
+      "provider": "",
+      "issueDate": "",
+      "expiry": "",
+      "credentialId": "",
+      "credentialUrl": ""
+    }
+  ],
+  "achievements": [],
+  "publications": [],
+  "research": [],
+  "volunteering": [],
+  "leadership": [],
+  "languages": [],
+  "internships": [],
+  "summary": "",
+  "objective": "",
+  "rawText": "",
+  "parserVersion": "manual-sample-v1",
+  "extractionConfidence": 100
+}

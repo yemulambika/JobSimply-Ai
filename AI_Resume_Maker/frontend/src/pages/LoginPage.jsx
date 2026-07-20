@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { notifyLogin } from '../utils/authChannel.js';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true);
+setLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
       const { accessToken, user } = response.data;
@@ -38,6 +39,9 @@ export default function LoginPage() {
       document.cookie = `token=${accessToken}; path=/; max-age=86400; SameSite=Lax`;
       localStorage.setItem('token', accessToken);
       localStorage.setItem('user', JSON.stringify(user));
+      
+      // Notify extension about successful login
+      notifyLogin(accessToken);
 
       toast.success(`Welcome back, ${user.name || user.email}!`);
       navigate('/resume');

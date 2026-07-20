@@ -21,6 +21,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'AUTH_UPDATED') {
     console.log('[POPUP] Auth updated, token received');
     pageToken = request.token;
+    // Set token in API service for refresh functionality
+    API.setToken(request.token);
     // Switch to logged in state immediately
     document.getElementById('auth-section')?.classList.add('hidden');
     document.getElementById('dashboard-section')?.classList.remove('hidden');
@@ -29,6 +31,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.action === 'AUTH_LOGOUT') {
     console.log('[POPUP] Auth logout received');
     pageToken = null;
+    API.setToken(null);
     currentJob = null;
     savedJobId = null;
     // Switch to logged out state immediately
@@ -36,6 +39,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     document.getElementById('auth-section')?.classList.remove('hidden');
   }
 });
+
+/**
+ * Get token from JobSimply website only
+ * This ensures we get a valid JWT, not tokens from job sites like naukri
+ */
+async function getValidToken() {
+  // First check if we have a cached token
+  if (pageToken) {
+    console.log('[POPUP] Using cached token');
+    return pageToken;
+  }
+  
+  // Try to get token from JobSimply tabs only
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.url && isJobSimplyWebsite(tab.url)) {
+      try {
+        const tokenResponse = await chrome.tabs.sendMessage(tab.id, { action: 'GET_TOKEN' });
+        if (tokenResponse?.token) {
+          console.log('[POPUP] Got valid token from JobSimply tab');
+          return tokenResponse.token;
+        }
+      } catch (e) {
+        console.log('[POPUP] Could not get token from JobSimply tab');
+      }
+    }
+  }
+  
+  console.log('[POPUP] No valid token found');
+  return null;
+}
 
 async function initialize() {
   // If we already have a token in memory, use it
@@ -74,7 +108,8 @@ async function initialize() {
 }
 
 function isJobSimplyWebsite(url) {
-  return url.includes('localhost:5173') || url.includes('127.0.0.1:5173');
+  return url.includes('localhost:5173') || url.includes('127.0.0.1:5173') || 
+         url.includes('localhost:5174') || url.includes('127.0.0.1:5174');
 }
 
 async function pingAndGetToken(tabId) {
@@ -90,6 +125,7 @@ async function pingAndGetToken(tabId) {
       const tokenResponse = await chrome.tabs.sendMessage(tabId, { action: 'GET_TOKEN' });
       if (tokenResponse?.token) {
         pageToken = tokenResponse.token;
+        API.setToken(tokenResponse.token);
         document.getElementById('auth-section')?.classList.add('hidden');
         document.getElementById('dashboard-section')?.classList.remove('hidden');
         detectAndSaveJob();
@@ -116,6 +152,7 @@ async function pingAndGetToken(tabId) {
           const tokenResponse = await chrome.tabs.sendMessage(tabId, { action: 'GET_TOKEN' });
           if (tokenResponse?.token) {
             pageToken = tokenResponse.token;
+            API.setToken(tokenResponse.token);
             document.getElementById('auth-section')?.classList.add('hidden');
             document.getElementById('dashboard-section')?.classList.remove('hidden');
             detectAndSaveJob();
@@ -190,16 +227,21 @@ async function saveJobAndDisplay(job) {
   try {
     showStatus('Saving job...', 'info');
     
+    if (!pageToken) {
+      showStatus('Please log in to JobSimply website first', 'error');
+      return;
+    }
+    
     const extractResponse = await API.extractJob(job, pageToken);
     
     if (extractResponse.success) {
       savedJobId = extractResponse.jobId;
       displayJobInfo(job, extractResponse);
     } else {
-      showStatus('Failed to save job', 'error');
+      showStatus('Failed to save job: ' + (extractResponse.error || 'Unknown error'), 'error');
     }
   } catch (error) {
-    showStatus('Failed to save job', 'error');
+    showStatus('Failed to save job: ' + error.message, 'error');
   }
 }
 

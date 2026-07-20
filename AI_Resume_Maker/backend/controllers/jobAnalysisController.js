@@ -1,5 +1,10 @@
-import { getPool } from '../services/postgres.js';
-import { getLatestResume, saveTailoredResume, saveCoverLetter } from '../services/postgres.js';
+import { getPool, getLatestResume, saveTailoredResume, saveCoverLetter } from '../services/postgres.js';
+import { ATSScoringEngine } from '../services/ats/ATSScoringEngine.js';
+import { RecommendationEngine } from '../services/ats/RecommendationEngine.js';
+
+// ATS Scoring Engine instance
+const scoringEngine = new ATSScoringEngine();
+const recommendationEngine = new RecommendationEngine();
 
 // Analyze job - for legacy/fallback use
 export const analyzeJob = async (req, res, next) => {
@@ -27,6 +32,12 @@ export const analyzeJob = async (req, res, next) => {
         experienceMatch: 0,
         educationMatch: 0,
         projectMatch: 0,
+        scores: {
+          skills: { score: 0, reason: 'No resume found' },
+          experience: { score: 0, reason: 'No resume found' },
+          projects: { score: 0, reason: 'No resume found' },
+          education: { score: 0, reason: 'No resume found' },
+        },
         suggestions: ['No resume uploaded. Please upload a resume to get analysis.'],
         message: 'No resume found'
       });
@@ -44,6 +55,7 @@ export const analyzeJob = async (req, res, next) => {
       experienceMatch: analysis.experienceMatch,
       educationMatch: analysis.educationMatch,
       projectMatch: analysis.projectMatch,
+      scores: analysis.scores,
       gaps: analysis.gaps,
       suggestions: analysis.suggestions
     });
@@ -53,95 +65,48 @@ export const analyzeJob = async (req, res, next) => {
   }
 };
 
-// Full ATS analysis - TRUTHFUL, NO INVENTED INFORMATION
+// Full ATS analysis - Using the new ATSScoringEngine
 function runFullAtsAnalysis(resume, job) {
   const resumeText = resume.originalText || '';
   const jobDescription = job.description || '';
   
-  const jobKeywords = extractAllKeywords(jobDescription);
-  const resumeSkills = Array.isArray(resume.skills) ? resume.skills : [];
+  // Run the new scoring engine
+  const engineResult = scoringEngine.analyze(resumeText, {
+    description: jobDescription,
+    title: job.title,
+    company: job.company,
+    location: job.location
+  });
 
-  const matchingSkills = jobKeywords.skills.filter(skill => 
-    resumeSkills.some(rs => rs.toLowerCase().includes(skill.toLowerCase()))
+  // Generate recommendations
+  const recommendations = recommendationEngine.generate(
+    engineResult.details, 
+    engineResult.parsedResume, 
+    engineResult.parsedJob
   );
-  const missingSkills = jobKeywords.skills.filter(skill => 
-    !matchingSkills.some(ms => ms.toLowerCase() === skill.toLowerCase())
-  );
-
-  // Experience Match - analyze based on actual experience
-  const experienceMatch = calculateExperienceMatch(resume, jobDescription);
-  
-  // Project Match - analyze based on actual projects
-  const projectMatch = calculateProjectMatch(resume.projects || [], jobDescription);
-  
-  // Education Match
-  const educationMatch = calculateEducationMatch(resume, jobDescription);
 
   return {
-    atsScore: Math.min(100, Math.max(0, 50 + (matchingSkills.length * 10))),
-    matchScore: Math.round((matchingSkills.length / (jobKeywords.skills.length || 1)) * 100),
-    missingSkills: missingSkills.slice(0, 15),
-    matchingSkills: matchingSkills.slice(0, 15),
-    recommendedKeywords: jobKeywords.all.slice(0, 15),
-    experienceMatch: experienceMatch,
-    educationMatch: educationMatch,
-    projectMatch: projectMatch,
-    gaps: {
-      skills: missingSkills.length > 5 ? ['Add: ' + missingSkills.slice(0, 3).join(', ')] : [],
-      experience: experienceMatch < 70 ? ['Consider highlighting relevant experience'] : [],
-      projects: projectMatch < 70 ? ['Add project showcasing: ' + (missingSkills[0] || 'relevant skills')] : []
+    atsScore: engineResult.atsScore,
+    matchScore: engineResult.atsScore,
+    missingSkills: engineResult.details.missingSkills || [],
+    matchingSkills: engineResult.details.matchedSkills || [],
+    recommendedKeywords: engineResult.parsedJob.keywords || [],
+    experienceMatch: engineResult.scores.experience.score,
+    educationMatch: engineResult.scores.education.score,
+    projectMatch: engineResult.scores.projects.score,
+    scores: {
+      skills: engineResult.scores.skills,
+      experience: engineResult.scores.experience,
+      projects: engineResult.scores.projects,
+      education: engineResult.scores.education,
     },
-    suggestions: missingSkills.length > 0 
-      ? [`Consider adding skills: ${missingSkills.slice(0,3).join(', ')}`] 
-      : ['Your resume matches this job well!']
+    gaps: {
+      skills: engineResult.details.missingSkills.length > 0 ? ['Add: ' + engineResult.details.missingSkills.slice(0, 3).join(', ')] : [],
+      experience: engineResult.scores.experience.score < 70 ? ['Consider highlighting relevant experience'] : [],
+      projects: engineResult.scores.projects.score < 70 ? ['Add project showcasing: ' + (engineResult.details.missingSkills[0] || 'relevant skills')] : []
+    },
+    suggestions: recommendations.length > 0 ? recommendations : ['Your resume matches this job well!']
   };
-}
-
-function extractAllKeywords(text) {
-  const skillKeywords = [
-    'javascript', 'react', 'vue', 'angular', 'nodejs', 'node.js', 'python', 'java', 'csharp', 'c++',
-    'sql', 'mongodb', 'postgresql', 'mysql', 'aws', 'docker', 'kubernetes', 'git', 'typescript',
-    'html', 'css', 'nextjs', 'express', 'django', 'flask', 'spring', 'ruby', 'php', 'swift',
-    'kotlin', 'go', 'rust', 'scala', 'r', 'tensorflow', 'pytorch', 'machine learning', 'ai',
-    'rest api', 'graphql', 'microservices', 'azure', 'gcp', 'cloud', 'devops', 'ci/cd',
-    'agile', 'scrum', 'jira', 'linux', 'bash', 'shell', 'firebase', 'redux', 'tailwind',
-    'bootstrap', 'jquery', 'sass', 'less', 'webpack', 'vite', 'npm', 'yarn', 'pnpm'
-  ];
-  
-  const lowerText = text.toLowerCase();
-  
-  // Only return skills that are ACTUALLY in the job description
-  return {
-    skills: skillKeywords.filter(skill => lowerText.includes(skill.toLowerCase())),
-    all: text.match(/\b[a-zA-Z]{4,}/g) || []
-  };
-}
-
-function calculateExperienceMatch(resume, desc) { 
-  if (!desc) return 50;
-  // Check if resume has experience entries
-  const exp = resume.experience || [];
-  if (exp.length === 0) return 30;
-  // Check if any experience mentions relevant technologies
-  const expText = JSON.stringify(exp).toLowerCase();
-  const descText = desc.toLowerCase();
-  const keywords = extractAllKeywords(desc).skills;
-  const matchCount = keywords.filter(k => expText.includes(k.toLowerCase())).length;
-  return Math.min(100, Math.round((matchCount / (keywords.length || 1)) * 100));
-}
-
-function calculateProjectMatch(projects, desc) { 
-  if (!projects || projects.length === 0) return 40;
-  const projText = JSON.stringify(projects).toLowerCase();
-  const descText = (desc || '').toLowerCase();
-  const keywords = extractAllKeywords(desc).skills;
-  const matchCount = keywords.filter(k => projText.includes(k.toLowerCase())).length;
-  return Math.min(100, Math.round((matchCount / (keywords.length || 1)) * 100));
-}
-
-function calculateEducationMatch(resume, desc) { 
-  if (!resume.education || resume.education.length === 0) return 40;
-  return 70; // Basic match if education exists
 }
 
 // Tailor resume - supports jobId or jobDescription
@@ -251,27 +216,27 @@ async function generateOptimizedResume(resume, jobDescription, company) {
   tailoredResume.location = resume.parsedData?.location || '';
   tailoredResume.linkedin = resume.parsedData?.linkedin || '';
   tailoredResume.github = resume.parsedData?.github || '';
-  
+
   // PRESERVE - Education (NEVER MODIFY)
   tailoredResume.education = resume.education || resume.parsedData?.education || [];
-  
+
   // PRESERVE - Experience (NEVER MODIFY company names, dates, or invent experience)
   // Only optimize bullet wording for keyword matching
   tailoredResume.experience = optimizeExperienceBullets(resume.experience || resume.parsedData?.experience || [], jobDescription);
-  
+
   // PRESERVE - Certifications (NEVER MODIFY)
   tailoredResume.certifications = resume.certifications || resume.parsedData?.certifications || [];
-  
+
   // OPTIMIZE - Skills (can reorder and add missing skills from job description)
   // Only add skills that are mentioned in the job description
   tailoredResume.skills = optimizeSkills(resume.skills || resume.parsedData?.skills || [], analysis.matchingSkills, jobDescription);
-  
+
   // OPTIMIZE - Projects (can reorder based on job relevance)
   tailoredResume.projects = optimizeProjects(resume.projects || resume.parsedData?.projects || [], jobDescription);
-  
+
   // OPTIMIZE - Summary (can rewrite for job targeting)
   tailoredResume.summary = optimizeSummary(resume.summary || resume.parsedData?.summary || '', jobDescription, company);
-  
+
   // Include analysis results
   tailoredResume.matchScore = analysis.matchScore;
   tailoredResume.atsScore = analysis.atsScore;
@@ -285,22 +250,23 @@ async function generateOptimizedResume(resume, jobDescription, company) {
 function optimizeSkills(existingSkills, jobKeywords, jobDescription) {
   const skills = [...(existingSkills || [])];
   const lowerDesc = jobDescription.toLowerCase();
-  
+
   // Add skills that appear in job description but not in resume
   // Only skills that are actually relevant to the job
   const skillKeywords = [
     'javascript', 'react', 'vue', 'angular', 'nodejs', 'node.js', 'python', 'java',
     'sql', 'mongodb', 'postgresql', 'mysql', 'aws', 'docker', 'git', 'typescript',
-    'html', 'css', 'nextjs', 'express', 'django', 'flask', 'spring'
+    'html', 'css', 'nextjs', 'express', 'django', 'flask', 'spring', 'backend',
+    'frontend', 'full stack', 'software development'
   ];
-  
+
   skillKeywords.forEach(skill => {
     if (lowerDesc.includes(skill.toLowerCase()) && 
         !skills.some(s => s.toLowerCase().includes(skill.toLowerCase()))) {
       skills.push(skill);
     }
   });
-  
+
   // Sort: skills matching job keywords first, then others
   return skills.sort((a, b) => {
     const aMatch = jobKeywords.some(k => a.toLowerCase().includes(k.toLowerCase()));
@@ -314,9 +280,9 @@ function optimizeSkills(existingSkills, jobKeywords, jobDescription) {
 // Optimize experience bullets - only reword for keyword matching, never invent
 function optimizeExperienceBullets(experience, jobDescription) {
   if (!Array.isArray(experience)) return [];
-  
+
   const keywords = extractAllKeywords(jobDescription).skills;
-  
+
   return experience.map(exp => {
     // Create optimized copy
     const optimized = { ...exp };
@@ -337,9 +303,9 @@ function optimizeExperienceBullets(experience, jobDescription) {
 // Optimize projects - reorder based on job relevance
 function optimizeProjects(projects, jobDescription) {
   if (!Array.isArray(projects)) return [];
-  
+
   const keywords = extractAllKeywords(jobDescription).skills;
-  
+
   // Sort projects by relevance (projects mentioning job keywords first)
   const sorted = [...projects].sort((a, b) => {
     const aText = (a.description || a.summary || '').toLowerCase();
@@ -350,7 +316,7 @@ function optimizeProjects(projects, jobDescription) {
     if (!aMatch && bMatch) return 1;
     return 0;
   });
-  
+
   return sorted.map(p => ({
     ...p,
     // Do NOT invent project descriptions
@@ -363,6 +329,27 @@ function optimizeSummary(summary, jobDescription, company) {
   if (!summary) return '';
   // Only reword for clarity, keep truthful
   return summary;
+}
+
+// Helper function to extract keywords
+function extractAllKeywords(text) {
+  const skillKeywords = [
+    'javascript', 'react', 'vue', 'angular', 'nodejs', 'node.js', 'python', 'java', 'csharp', 'c++',
+    'sql', 'mongodb', 'postgresql', 'mysql', 'aws', 'docker', 'kubernetes', 'git', 'typescript',
+    'html', 'css', 'nextjs', 'express', 'django', 'flask', 'spring', 'ruby', 'php', 'swift',
+    'kotlin', 'go', 'rust', 'scala', 'r', 'tensorflow', 'pytorch', 'machine learning', 'ai',
+    'rest api', 'graphql', 'microservices', 'azure', 'gcp', 'cloud', 'devops', 'ci/cd',
+    'agile', 'scrum', 'jira', 'linux', 'bash', 'shell', 'firebase', 'redux', 'tailwind',
+    'bootstrap', 'jquery', 'sass', 'less', 'webpack', 'vite', 'npm', 'yarn', 'pnpm'
+  ];
+
+  const lowerText = text.toLowerCase();
+
+  // Only return skills that are ACTUALLY in the job description
+  return {
+    skills: skillKeywords.filter(skill => lowerText.includes(skill.toLowerCase())),
+    all: text.match(/\b[a-zA-Z]{4,}/g) || []
+  };
 }
 
 // Generate cover letter
@@ -400,7 +387,7 @@ export const generateJobCoverLetter = async (req, res, next) => {
 function generateCoverLetterContent(resume, desc, company, position) {
   const parsed = resume.parsedData || {};
   const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  
+
   // TRUTHFUL - Use only information from resume
   return `${parsed.name || ''}\n${parsed.email || ''} | ${parsed.phone || ''}\n\n${date}\n\nDear Hiring Manager,\n\nI am writing to express my interest in the ${position || 'position'} at ${company || 'your company'}.\n\n${parsed.experience?.[0]?.description || 'My experience aligns well with this role.'}\n\nSincerely,\n${parsed.name || ''}`;
 }

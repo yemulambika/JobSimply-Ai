@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { notifyLogin } from '../utils/authChannel.js';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -36,9 +37,12 @@ export default function RegisterPage() {
       const { accessToken, user } = response.data;
 
       // Store token in both cookie and localStorage for the interceptor
-      document.cookie = `token=${accessToken}; path=/; max-age=86400; SameSite=Lax`;
+document.cookie = `token=${accessToken}; path=/; max-age=86400; SameSite=Lax`;
       localStorage.setItem('token', accessToken);
       localStorage.setItem('user', JSON.stringify(user));
+      
+      // Notify extension about successful registration/login
+      notifyLogin(accessToken);
 
       toast.success('Account created successfully!');
       navigate('/resume');

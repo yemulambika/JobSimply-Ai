@@ -77,10 +77,11 @@ const ensureCoverLetterTable = async (client) => {
 };
 
 const ensureJobTable = async (client) => {
+  // Create Job table with all columns needed for extension
   await client.query(`
     CREATE TABLE IF NOT EXISTS "Job" (
       id SERIAL PRIMARY KEY,
-      "userId" INTEGER NOT NULL,
+      "userId" INTEGER,
       title TEXT NOT NULL,
       company TEXT NOT NULL,
       location TEXT,
@@ -108,6 +109,13 @@ const ensureJobTable = async (client) => {
       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+  
+  // Create unique index for ON CONFLICT (userId, jobUrl) - needed for upsert
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "Job_userId_jobUrl_unique"
+    ON "Job" ("userId", "jobUrl")
+    WHERE "userId" IS NOT NULL AND "jobUrl" IS NOT NULL
   `);
 };
 

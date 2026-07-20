@@ -1,11 +1,10 @@
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const storage = multer.memoryStorage();
@@ -19,7 +18,7 @@ export const upload = multer({
       return;
     }
     cb(new Error('Only PDF files are allowed'));
-  }
+  },
 });
 
 export async function uploadToCloudinary(buffer, originalName) {
@@ -31,15 +30,18 @@ export async function uploadToCloudinary(buffer, originalName) {
         folder: 'resumes',
         resource_type: 'raw',
         public_id: publicId,
-        format: 'pdf'
+        format: 'pdf',
+        type: 'upload',
+        access_mode: 'public',
       },
       (error, result) => {
-        if (error) reject(error);
-        else
-          resolve({
-            secure_url: result.secure_url,
-            public_id: result.public_id
-          });
+        if (error) {
+          return reject(error);
+        }
+        resolve({
+          secure_url: result.secure_url,
+          public_id: result.public_id,
+        });
       }
     );
 

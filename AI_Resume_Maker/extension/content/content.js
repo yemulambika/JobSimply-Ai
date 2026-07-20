@@ -69,38 +69,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Get JWT token from website localStorage or other sources
 function getTokenFromPage() {
-  // Try localStorage
+  // Try localStorage - most common
   try {
-    const token = localStorage.getItem('token') || 
-                  localStorage.getItem('authToken') || 
-                  localStorage.getItem('jwt');
+    const token = localStorage.getItem('token');
     if (token) {
-      console.log('[CONTENT] Found token in localStorage');
-      return token;
+      // Validate it looks like a JWT (has dots and reasonable length)
+      if (token.includes('.') && token.length > 50) {
+        console.log('[CONTENT] Found valid JWT in localStorage');
+        return token;
+      } else {
+        console.log('[CONTENT] Found token in localStorage but not a valid JWT format');
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.log('[CONTENT] Error reading localStorage');
+  }
   
-  // Try cookies
+  // Try cookies as fallback
   try {
     const cookies = document.cookie.split(';');
     for (const cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
-      if (name === 'refreshToken' || name === 'token') {
-        console.log('[CONTENT] Found token in cookie:', name);
+      if (name === 'token' && value && value.length > 50) {
+        console.log('[CONTENT] Found valid JWT in cookie:', name);
         return value;
       }
     }
   } catch (e) {}
   
-  // Try window.__APP_STATE__
+  // Try window.__APP_STATE__ as last resort
   try {
     const appState = window.__APP_STATE__;
-    if (appState?.token) {
-      console.log('[CONTENT] Found token in window.__APP_STATE__');
+    if (appState?.token && appState.token.length > 50) {
+      console.log('[CONTENT] Found valid JWT in window.__APP_STATE__');
       return appState.token;
     }
   } catch (e) {}
   
+  console.log('[CONTENT] No valid JWT token found');
   return null;
 }
 

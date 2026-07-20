@@ -1,12 +1,20 @@
 import { getPool } from '../services/postgres.js';
+import { ATSScoringEngine } from '../services/ats/ATSScoringEngine.js';
+import { RecommendationEngine } from '../services/ats/RecommendationEngine.js';
+
+// ATS Scoring Engine instance
+const scoringEngine = new ATSScoringEngine();
+const recommendationEngine = new RecommendationEngine();
 
 // POST /ats/analyze - Analyze resume for ATS compatibility
 export const analyzeResume = async (req, res, next) => {
+  console.log('[ATS CONTROLLER] ===== ANALYZE RESUME START =====');
   try {
     const { resumeId, jobDescription } = req.body;
     const userId = req.user.id;
 
     if (!resumeId) {
+      console.log('[ATS CONTROLLER] No resume ID provided');
       return res.status(400).json({ message: 'Resume ID is required' });
     }
 
@@ -19,6 +27,7 @@ export const analyzeResume = async (req, res, next) => {
       );
 
       if (resumeResult.rows.length === 0) {
+        console.log('[ATS CONTROLLER] Resume not found for ID:', resumeId);
         return res.status(404).json({ message: 'Resume not found' });
       }
 
@@ -26,27 +35,50 @@ export const analyzeResume = async (req, res, next) => {
       const originalText = resume.originalText || '';
       const parsedData = resume.parsedData || {};
 
-      // ATS Analysis using AI
-      const prompt = `Analyze this resume for ATS (Applicant Tracking System) compatibility.
-      
-Resume Text:
-${originalText.substring(0, 5000)}
+      console.log('[ATS CONTROLLER] Resume text length:', originalText.length);
+      console.log('[ATS CONTROLLER] Resume parsed skills:', parsedData?.skills || resume.skills);
 
-${jobDescription ? `Job Description:\n${jobDescription.substring(0, 2000)}` : ''}
+      // Run ATS analysis using the scoring engine
+      const analysis = scoringEngine.analyze(originalText, { 
+        description: jobDescription,
+        title: '',
+        company: ''
+      });
 
-Return a JSON object with:
-- score (0-100): Overall ATS compatibility score
-- keywordMatch (object): { matched: [], missing: [] } based on job description if provided
-- missingSkills (array): Skills from job description that are missing
-- formattingIssues (array): List of formatting problems
-- suggestions (array): Actionable suggestions to improve ATS score
-- sectionAnalysis (object): Analysis of each resume section
-- readabilityScore (0-100): How readable the resume is
-- recruiterReadiness (string): Assessment of how ready this resume is for recruiters
+      console.log('[ATS CONTROLLER] ATS Score:', analysis.atsScore);
+      console.log('[ATS CONTROLLER] Skills Score:', analysis.scores.skills);
+      console.log('[ATS CONTROLLER] Experience Score:', analysis.scores.experience);
+      console.log('[ATS CONTROLLER] Matched Skills:', analysis.details.matchedSkills);
+      console.log('[ATS CONTROLLER] Missing Skills:', analysis.details.missingSkills);
 
-Format response as valid JSON only.`;
+      // Generate recommendations
+      const recommendations = recommendationEngine.generate(analysis.details, analysis.parsedResume, analysis.parsedJob);
 
-      const analysis = await getATSAnalysis(prompt);
+      // Format the analysis result with detailed explanations
+      const formattedAnalysis = {
+        score: analysis.atsScore,
+        keywordMatch: {
+          matched: analysis.details.matchedSkills || [],
+          missing: analysis.details.missingSkills || []
+        },
+        missingSkills: analysis.details.missingSkills || [],
+        formattingIssues: [],
+        suggestions: recommendations,
+        sectionAnalysis: {
+          skills: analysis.scores.skills,
+          experience: analysis.scores.experience,
+          projects: analysis.scores.projects,
+          education: analysis.scores.education,
+          responsibilities: analysis.scores.responsibilities,
+          keywords: analysis.scores.keywords
+        },
+        readabilityScore: 85, // Default - could be enhanced with readability analysis
+        recruiterReadiness: this.assessRecruiterReadiness(analysis.atsScore),
+        // Detailed breakdown
+        scores: analysis.scores,
+        matchedSkills: analysis.details.matchedSkills || [],
+        totalExperienceYears: analysis.details.totalYears || 0,
+      };
 
       // Save analysis to database
       const analysisResult = await client.query(
@@ -57,20 +89,21 @@ Format response as valid JSON only.`;
           userId,
           resumeId,
           jobDescription || null,
-          analysis.score,
-          JSON.stringify(analysis.keywordMatch || {}),
-          JSON.stringify(analysis.missingSkills || []),
-          JSON.stringify(analysis.formattingIssues || []),
-          JSON.stringify(analysis.suggestions || []),
-          JSON.stringify(analysis.sectionAnalysis || {}),
-          analysis.readabilityScore,
-          analysis.recruiterReadiness,
+          formattedAnalysis.score,
+          JSON.stringify(formattedAnalysis.keywordMatch || {}),
+          JSON.stringify(formattedAnalysis.missingSkills || []),
+          JSON.stringify(formattedAnalysis.formattingIssues || []),
+          JSON.stringify(formattedAnalysis.suggestions || []),
+          JSON.stringify(formattedAnalysis.sectionAnalysis || {}),
+          formattedAnalysis.readabilityScore,
+          formattedAnalysis.recruiterReadiness,
         ]
       );
 
       res.status(200).json({
         success: true,
-        analysis: analysisResult.rows[0],
+        analysis: formattedAnalysis,
+        parsedData: analysis.parsedResume,
       });
     } finally {
       client.release();
@@ -80,6 +113,17 @@ Format response as valid JSON only.`;
     next(error);
   }
 };
+
+/**
+ * Assess recruiter readiness based on score
+ */
+function assessRecruiterReadiness(score) {
+  if (score >= 85) return 'Excellent - Ready for top companies';
+  if (score >= 70) return 'Good - Minor improvements recommended';
+  if (score >= 50) return 'Fair - Needs optimization';
+  if (score >= 30) return 'Needs improvement - Add more relevant skills';
+  return 'Poor - Significant revision needed';
+}
 
 // GET /ats/history - Get ATS analysis history
 export const getAnalysisHistory = async (req, res, next) => {
@@ -139,44 +183,65 @@ export const getAnalysis = async (req, res, next) => {
   }
 };
 
-// Helper function to get ATS analysis from AI
-async function getATSAnalysis(prompt) {
-  const apiKey = process.env.GROQ_API_KEY || process.env.OPENROUTER_API_KEY;
-  
-  if (process.env.GROQ_API_KEY) {
-    const Groq = (await import('groq-sdk')).default;
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'llama-3.1-8b-instant',
-      response_format: { type: 'json_object' },
-    });
-    return JSON.parse(completion.choices[0]?.message?.content || '{}');
-  } else if (process.env.OPENROUTER_API_KEY) {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    const data = await response.json();
-    return JSON.parse(data.choices[0]?.message?.content || '{}');
+// POST /ats/analyze-simple - Simple analysis without job description
+export const analyzeResumeSimple = async (req, res, next) => {
+  try {
+    const { resumeId } = req.body;
+    const userId = req.user.id;
+
+    if (!resumeId) {
+      return res.status(400).json({ message: 'Resume ID is required' });
+    }
+
+    const client = await getPool().connect();
+    try {
+      const resumeResult = await client.query(
+        'SELECT * FROM "Resume" WHERE id = $1 AND "userId" = $2',
+        [resumeId, userId]
+      );
+
+      if (resumeResult.rows.length === 0) {
+        return res.status(404).json({ message: 'Resume not found' });
+      }
+
+      const resume = resumeResult.rows[0];
+      const originalText = resume.originalText || '';
+
+      // Run ATS analysis without job description
+      const analysis = scoringEngine.analyze(originalText, { description: '' });
+
+      // Format the analysis result
+      const formattedAnalysis = {
+        score: analysis.atsScore,
+        keywordMatch: {
+          matched: analysis.details.matchedSkills || [],
+          missing: analysis.details.missingSkills || []
+        },
+        missingSkills: analysis.details.missingSkills || [],
+        formattingIssues: [],
+        suggestions: ['Your resume is well-structured. Consider adding more specific technical skills.'],
+        sectionAnalysis: {
+          skills: analysis.scores.skills,
+          experience: analysis.scores.experience,
+          projects: analysis.scores.projects,
+          education: analysis.scores.education
+        },
+        readabilityScore: 85,
+        recruiterReadiness: assessRecruiterReadiness(analysis.atsScore),
+        scores: analysis.scores,
+        matchedSkills: analysis.details.matchedSkills || [],
+        totalExperienceYears: analysis.details.totalYears || 0,
+      };
+
+      res.status(200).json({
+        success: true,
+        analysis: formattedAnalysis,
+      });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error in analyzeResumeSimple:', error);
+    next(error);
   }
-  
-  // Fallback basic analysis
-  return {
-    score: 75,
-    keywordMatch: { matched: [], missing: [] },
-    missingSkills: [],
-    formattingIssues: [],
-    suggestions: ['Add more relevant keywords from the job description'],
-    sectionAnalysis: {},
-    readabilityScore: 80,
-    recruiterReadiness: 'Good foundation, but could be optimized further',
-  };
-}
+};

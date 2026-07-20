@@ -73,7 +73,7 @@ async function runMigration() {
       await client.query(query);
     }
 
-    // 5. Create Job table with all columns expected by JobStorage.js
+    // 5. Create Job table with all columns expected by extension and controllers
     console.log('Creating Job table...');
     await client.query(`
       CREATE TABLE IF NOT EXISTS "Job" (
@@ -81,18 +81,55 @@ async function runMigration() {
         title TEXT NOT NULL,
         company TEXT NOT NULL,
         location TEXT,
-        description TEXT,
-        url TEXT,
-        source TEXT DEFAULT 'manual',
         salary TEXT,
-        "employmentType" TEXT,
-        "isRemote" BOOLEAN DEFAULT false,
-        skills JSONB,
-        benefits JSONB,
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(title, company, location)
+        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Add missing columns if they don't exist (for existing tables)
+    console.log('Ensuring all columns exist on Job table...');
+    const jobColumns = [
+      'ADD COLUMN IF NOT EXISTS "userId" INTEGER REFERENCES "User"(id) ON DELETE CASCADE',
+      'ADD COLUMN IF NOT EXISTS experience TEXT',
+      'ADD COLUMN IF NOT EXISTS "workMode" TEXT',
+      'ADD COLUMN IF NOT EXISTS "jobUrl" TEXT',
+      'ADD COLUMN IF NOT EXISTS "companyLogo" TEXT',
+      'ADD COLUMN IF NOT EXISTS "postedDate" TEXT',
+      'ADD COLUMN IF NOT EXISTS responsibilities TEXT',
+      'ADD COLUMN IF NOT EXISTS qualifications TEXT',
+      'ADD COLUMN IF NOT EXISTS "preferredSkills" JSONB',
+      'ADD COLUMN IF NOT EXISTS "atsScore" INTEGER',
+      'ADD COLUMN IF NOT EXISTS "matchingSkills" JSONB',
+      'ADD COLUMN IF NOT EXISTS analysis JSONB',
+      'ADD COLUMN IF NOT EXISTS "tailoredResumeId" INTEGER REFERENCES "TailoredResume"(id) ON DELETE SET NULL',
+      'ADD COLUMN IF NOT EXISTS "coverLetterId" INTEGER REFERENCES "CoverLetter"(id) ON DELETE SET NULL',
+      'ADD COLUMN IF NOT EXISTS "employmentType" TEXT',
+      'ADD COLUMN IF NOT EXISTS "requiredSkills" JSONB',
+      'ADD COLUMN IF NOT EXISTS keywords JSONB',
+      'ADD COLUMN IF NOT EXISTS source TEXT DEFAULT \'manual\'',
+      'ADD COLUMN IF NOT EXISTS "isRemote" BOOLEAN DEFAULT false',
+      'ADD COLUMN IF NOT EXISTS "matchScore" INTEGER',
+      'ADD COLUMN IF NOT EXISTS "missingSkills" JSONB',
+      'ADD COLUMN IF NOT EXISTS skills JSONB',
+      'ADD COLUMN IF NOT EXISTS benefits JSONB',
+      'ADD COLUMN IF NOT EXISTS url TEXT',
+    ];
+
+    for (const col of jobColumns) {
+      try {
+        await client.query(`ALTER TABLE "Job" ${col}`);
+      } catch (err) {
+        console.log(`Column already exists or error: ${col}`);
+      }
+    }
+
+    // Create unique index for ON CONFLICT (userId, jobUrl)
+    console.log('Creating unique index for Job table...');
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Job_userId_jobUrl_unique"
+      ON "Job" ("userId", "jobUrl")
+      WHERE "userId" IS NOT NULL AND "jobUrl" IS NOT NULL
     `);
 
     await client.query(`

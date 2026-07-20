@@ -1,9 +1,10 @@
 import { getPool } from '../services/postgres.js';
 import { aggregateJobs } from '../services/jobs/JobAggregator.js';
-import { getAllJobs } from '../services/jobs/JobStorage.js';
+import { getAllJobs, getUserSavedJobs } from '../services/jobs/JobStorage.js';
 
 // Ensure Job table exists
 const ensureJobTable = async (client) => {
+  // Create Job table with all columns needed for extension and aggregator compatibility
   await client.query(`
     CREATE TABLE IF NOT EXISTS "Job" (
       id SERIAL PRIMARY KEY,
@@ -11,27 +12,47 @@ const ensureJobTable = async (client) => {
       title TEXT NOT NULL,
       company TEXT NOT NULL,
       location TEXT,
-      description TEXT,
-      url TEXT,
-      "jobUrl" TEXT,
-      source TEXT DEFAULT 'manual',
       salary TEXT,
+      experience TEXT,
       "employmentType" TEXT,
       "workMode" TEXT,
-      "isRemote" BOOLEAN DEFAULT false,
+      description TEXT,
+      responsibilities TEXT,
+      qualifications TEXT,
       "requiredSkills" JSONB,
       "preferredSkills" JSONB,
       keywords JSONB,
+      source TEXT DEFAULT 'manual',
+      url TEXT,
+      "jobUrl" TEXT,
+      "companyLogo" TEXT,
+      "postedDate" TEXT,
+      "isRemote" BOOLEAN DEFAULT false,
       "matchScore" INTEGER,
       "atsScore" INTEGER,
       "missingSkills" JSONB,
       "matchingSkills" JSONB,
       analysis JSONB,
       "tailoredResumeId" INTEGER,
+      "coverLetterId" INTEGER,
+      skills JSONB,
       benefits JSONB,
       "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+  
+  // Create unique index for ON CONFLICT (userId, jobUrl)
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "Job_userId_jobUrl_unique"
+    ON "Job" ("userId", "jobUrl")
+    WHERE "userId" IS NOT NULL AND "jobUrl" IS NOT NULL
+  `);
+  
+  // Also create index for title/company/location upserts
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "Job_title_company_location_key"
+    ON "Job" (title, company, COALESCE(location, ''))
   `);
 };
 
@@ -105,3 +126,18 @@ async function getJobByIdFromDb(id, userId = null) {
     client.release();
   }
 }
+
+// GET /jobs/saved - List jobs saved by user (from extension)
+export const listUserSavedJobs = async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    const jobs = await getUserSavedJobs(userId);
+    console.log(`Returning ${jobs.length} saved jobs for user ${userId}`);
+    res.status(200).json({ success: true, jobs });
+  } catch (error) {
+    next(error);
+  }
+};

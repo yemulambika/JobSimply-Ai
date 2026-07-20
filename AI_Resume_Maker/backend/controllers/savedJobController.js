@@ -12,6 +12,8 @@ export const saveJob = async (req, res, next) => {
 
     const client = await getPool().connect();
     try {
+      await ensureSavedJobTable(client);
+      
       // Verify job exists
       const jobResult = await client.query('SELECT * FROM "Job" WHERE id = $1', [jobId]);
       if (jobResult.rows.length === 0) {
@@ -51,6 +53,24 @@ export const saveJob = async (req, res, next) => {
   }
 };
 
+// Ensure SavedJob table exists
+const ensureSavedJobTable = async (client) => {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS "SavedJob" (
+      id SERIAL PRIMARY KEY,
+      "userId" INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+      "jobId" INTEGER NOT NULL REFERENCES "Job"(id) ON DELETE CASCADE,
+      notes TEXT,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  // Create unique index for userId + jobId
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "SavedJob_userId_jobId_unique"
+    ON "SavedJob" ("userId", "jobId")
+  `);
+};
+
 // GET /saved-jobs - List all saved jobs
 export const listSavedJobs = async (req, res, next) => {
   try {
@@ -58,8 +78,10 @@ export const listSavedJobs = async (req, res, next) => {
     const client = await getPool().connect();
 
     try {
+      await ensureSavedJobTable(client);
+      // Include both url and jobUrl for extension compatibility
       const result = await client.query(
-        `SELECT sj.*, j.title, j.company, j.location, j.description, j.url, j.salary, j."employmentType", j."isRemote"
+        `SELECT sj.*, j.title, j.company, j.location, j.description, j.url, j."jobUrl", j.salary, j."employmentType", j."isRemote", j."atsScore", j."matchScore"
          FROM "SavedJob" sj
          JOIN "Job" j ON sj."jobId" = j.id
          WHERE sj."userId" = $1
@@ -87,6 +109,7 @@ export const removeSavedJob = async (req, res, next) => {
     const client = await getPool().connect();
 
     try {
+      await ensureSavedJobTable(client);
       const result = await client.query(
         'DELETE FROM "SavedJob" WHERE id = $1 AND "userId" = $2 RETURNING id',
         [id, userId]
@@ -116,6 +139,7 @@ export const checkSavedJob = async (req, res, next) => {
     const client = await getPool().connect();
 
     try {
+      await ensureSavedJobTable(client);
       const result = await client.query(
         'SELECT id FROM "SavedJob" WHERE "userId" = $1 AND "jobId" = $2',
         [userId, jobId]

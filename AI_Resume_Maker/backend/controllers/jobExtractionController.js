@@ -1,13 +1,18 @@
 import { getPool } from '../services/postgres.js';
 import { getLatestResume } from '../services/postgres.js';
+import { ATSScoringEngine } from '../services/ats/ATSScoringEngine.js';
+import { RecommendationEngine } from '../services/ats/RecommendationEngine.js';
+
+// ATS Scoring Engine instance
+const scoringEngine = new ATSScoringEngine();
+const recommendationEngine = new RecommendationEngine();
 
 // Extension sends job JSON, backend stores it and returns analysis
 export const extractJobAndAnalyze = async (req, res, next) => {
-  console.log('[BACKEND] extractJobAndAnalyze - Incoming request:', { 
-    title: req.body?.title, 
-    company: req.body?.company,
-    source: req.body?.source 
-  });
+  console.log('[BACKEND] ========== extractJobAndAnalyze START ==========');
+  console.log('[BACKEND] Extract request - req.user:', req.user ? { id: req.user.id, email: req.user.email } : 'null');
+  console.log('[BACKEND] Extract request - req.validated:', req.validated ? { title: req.validated.title, company: req.validated.company } : 'null');
+  console.log('[BACKEND] Extract request - req.body:', req.body ? { title: req.body.title, company: req.body.company } : 'null');
   
   // Step 1: Verify JWT middleware
   if (!req.user) {
@@ -22,12 +27,12 @@ export const extractJobAndAnalyze = async (req, res, next) => {
   const userId = req.user.id;
   console.log('[BACKEND] extractJobAndAnalyze - JWT verified, userId:', userId);
   
-  // Step 2: Validate request body
+  // Step 2: Use validated body (already validated by middleware)
   const { 
     title, company, location, salary, experience, employmentType, workMode,
     description, responsibilities, qualifications, requiredSkills, preferredSkills,
     keywords, source, jobUrl, companyLogo, postedDate 
-  } = req.body || {};
+  } = req.validated || {};
   
   console.log('[BACKEND] extractJobAndAnalyze - Request body parsed:', { title, company, source });
 
@@ -47,11 +52,11 @@ export const extractJobAndAnalyze = async (req, res, next) => {
   try {
     console.log('[BACKEND] extractJobAndAnalyze - Creating Job table if needed');
     
-    // Create Job table if it doesn't exist
+    // Create Job table if it doesn't exist (with all columns needed for extension)
     await client.query(`
       CREATE TABLE IF NOT EXISTS "Job" (
         id SERIAL PRIMARY KEY,
-        "userId" INTEGER NOT NULL,
+        "userId" INTEGER,
         title TEXT NOT NULL,
         company TEXT NOT NULL,
         location TEXT,
@@ -80,6 +85,19 @@ export const extractJobAndAnalyze = async (req, res, next) => {
         "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Create unique index for ON CONFLICT (userId, jobUrl) - needed for upsert when jobUrl exists
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Job_userId_jobUrl_unique"
+      ON "Job" ("userId", "jobUrl")
+      WHERE "userId" IS NOT NULL AND "jobUrl" IS NOT NULL
+    `);
+
+// Create unique index for ON CONFLICT (title, company, location) - needed for upsert when jobUrl is missing
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Job_title_company_location_key"
+      ON "Job" (title, company, location)
+    `);
 
     // Insert the job (upsert to avoid duplicates)
     console.log('[BACKEND] extractJobAndAnalyze - Inserting job into database');
@@ -88,7 +106,7 @@ export const extractJobAndAnalyze = async (req, res, next) => {
          "employmentType", "workMode", description, responsibilities, qualifications, 
          "requiredSkills", "preferredSkills", keywords, source, "jobUrl", "companyLogo", "postedDate")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-       ON CONFLICT ("userId", "jobUrl") DO UPDATE 
+       ON CONFLICT (title, company, location) DO UPDATE 
        SET title = EXCLUDED.title, company = EXCLUDED.company, 
            location = EXCLUDED.location, description = EXCLUDED.description,
            "updatedAt" = CURRENT_TIMESTAMP
@@ -128,14 +146,24 @@ export const extractJobAndAnalyze = async (req, res, next) => {
     // Step 5: Run analysis if resume exists
     if (resume) {
       console.log('[BACKEND] extractJobAndAnalyze - Resume found, running analysis');
-      const analysis = runFullAtsAnalysis(resume, { 
+      console.log('[BACKEND] extractJobAndAnalyze - Resume originalText length:', resume.originalText?.length || 0);
+      console.log('[BACKEND] extractJobAndAnalyze - Resume parsedData skills:', resume.parsedData?.skills || resume.skills);
+      
+      const analysis = scoringEngine.analyze(resume.originalText || '', { 
         title, company, description, location, requiredSkills, keywords 
       });
       
-      matchScore = analysis.matchScore;
+      console.log('[BACKEND] extractJobAndAnalyze - Analysis completed');
+      console.log('[BACKEND] extractJobAndAnalyze - ATS Score:', analysis.atsScore);
+      console.log('[BACKEND] extractJobAndAnalyze - Skills Score:', analysis.scores.skills);
+      console.log('[BACKEND] extractJobAndAnalyze - Experience Score:', analysis.scores.experience);
+      console.log('[BACKEND] extractJobAndAnalyze - Project Score:', analysis.scores.projects);
+      console.log('[BACKEND] extractJobAndAnalyze - Education Score:', analysis.scores.education);
+      
+      matchScore = analysis.atsScore;
       atsScore = analysis.atsScore;
-      missingSkills = analysis.missingSkills;
-      matchingSkills = analysis.matchingSkills;
+      missingSkills = analysis.details.missingSkills;
+      matchingSkills = analysis.details.matchedSkills;
     } else {
       console.log('[BACKEND] extractJobAndAnalyze - No resume found, using basic analysis');
     }
@@ -187,69 +215,3 @@ export const extractJobAndAnalyze = async (req, res, next) => {
     console.log('[BACKEND] extractJobAndAnalyze - Database connection released');
   }
 };
-
-// Full ATS analysis
-function runFullAtsAnalysis(resume, job) {
-  const resumeText = resume.originalText || '';
-  const jobDescription = job.description || '';
-  
-  const jobKeywords = extractAllKeywords(jobDescription, job.requiredSkills, job.keywords);
-  const resumeSkills = Array.isArray(resume.skills) ? resume.skills : [];
-
-  const matchingSkills = jobKeywords.skills.filter(skill => 
-    resumeSkills.some(rs => rs.toLowerCase().includes(skill.toLowerCase()))
-  );
-  const missingSkills = jobKeywords.skills.filter(skill => 
-    !matchingSkills.some(ms => ms.toLowerCase() === skill.toLowerCase())
-  );
-
-  return {
-    atsScore: Math.min(100, Math.max(0, 50 + (matchingSkills.length * 10))),
-    matchScore: Math.round((matchingSkills.length / (jobKeywords.skills.length || 1)) * 100),
-    missingSkills: missingSkills.slice(0, 15),
-    matchingSkills: matchingSkills.slice(0, 15),
-    recommendedKeywords: jobKeywords.all.slice(0, 15),
-    experienceMatch: calculateExperienceMatch(resume, jobDescription),
-    projectMatch: calculateProjectMatch(resume.projects || [], jobDescription),
-    suggestions: missingSkills.length > 0 
-      ? [`Add skills: ${missingSkills.slice(0,3).join(', ')}`] 
-      : ['Your resume matches this job well!']
-  };
-}
-
-function extractAllKeywords(text, requiredSkills = [], keywords = []) {
-  const commonSkillKeywords = [
-    'javascript', 'react', 'vue', 'angular', 'nodejs', 'node.js', 'python', 'java', 'csharp', 'c++',
-    'sql', 'mongodb', 'postgresql', 'mysql', 'aws', 'docker', 'kubernetes', 'git', 'typescript',
-    'html', 'css', 'nextjs', 'express', 'django', 'flask', 'spring', 'ruby', 'php', 'swift',
-    'kotlin', 'go', 'rust', 'scala', 'r', 'tensorflow', 'pytorch', 'machine learning', 'ai',
-    'rest api', 'graphql', 'microservices', 'azure', 'gcp', 'cloud', 'devops', 'ci/cd',
-    'agile', 'scrum', 'jira', 'linux', 'bash', 'shell', 'firebase', 'redux', 'tailwind',
-    'bootstrap', 'jquery', 'sass', 'less', 'webpack', 'vite', 'npm', 'yarn', 'pnpm'
-  ];
-  
-  const lowerText = text.toLowerCase();
-  
-  // Combine required skills, extracted keywords, and common skills found in description
-  const skills = [
-    ...(requiredSkills || []),
-    ...commonSkillKeywords.filter(skill => lowerText.includes(skill.toLowerCase()))
-  ];
-  
-  // Remove duplicates
-  const uniqueSkills = [...new Set(skills.map(s => s.toLowerCase()))];
-  
-  return {
-    skills: uniqueSkills,
-    all: keywords.length > 0 ? keywords : (text.match(/\b[a-zA-Z]{4,}/g) || [])
-  };
-}
-
-function calculateExperienceMatch(resume, desc) { 
-  // Simplified - check if resume has experience
-  return resume.experience?.length > 0 ? 70 : 30; 
-}
-
-function calculateProjectMatch(projects, desc) { 
-  return projects?.length > 0 ? 60 : 40; 
-}

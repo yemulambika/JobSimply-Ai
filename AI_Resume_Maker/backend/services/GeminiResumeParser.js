@@ -1,9 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
+import { AtsResumeParser } from './ats/AtsResumeParser.js';
 
 dotenv.config();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const atsParser = new AtsResumeParser();
 
 if (!GEMINI_API_KEY) {
   throw new Error("GEMINI_API_KEY is not set in the environment variables.");
@@ -85,7 +87,11 @@ Return ONLY the JSON object.`;
         if (jsonMatch && jsonMatch[1]) {
           parsed = JSON.parse(jsonMatch[1]);
         } else {
-          parsed = JSON.parse(text);
+          try {
+            parsed = JSON.parse(text);
+          } catch (parseError) {
+            throw new Error(`Invalid JSON from ${modelName}: ${parseError.message}`);
+          }
         }
 
         // Normalize field names (handle case variations from Gemini)
@@ -113,6 +119,9 @@ Return ONLY the JSON object.`;
           const normalizedKey = fieldMap[key] || key;
           normalized[normalizedKey] = value;
         }
+        
+        // Store full parsed structure
+        normalized.parsedData = normalized;
 
         return normalized;
       } catch (error) {
@@ -135,63 +144,68 @@ Return ONLY the JSON object.`;
       }
     }
 
-    // If all models exhausted, try fallback regex-based extraction
-    console.warn('Gemini API unavailable. Using fallback regex extraction.');
+    // If all models exhausted, use ATS regex parser
+    console.warn('Gemini API unavailable. Using ATS regex extraction.');
     return this.fallbackExtract(resumeText);
   }
 
   fallbackExtract(text) {
     if (!text) {
+      const empty = atsParser.getEmptyResult();
       return {
-        name: null, email: null, phone: null, location: null,
-        LinkedIn: null, GitHub: null, Portfolio: null, summary: null,
-        skills: [], technicalSkills: [], softSkills: [],
-        experience: [], projects: [], education: [],
-        certifications: [], languages: [],
+        name: empty.personal?.name,
+        email: empty.personal?.email,
+        phone: empty.personal?.phone,
+        location: empty.personal?.location,
+        LinkedIn: empty.personal?.linkedin,
+        GitHub: empty.personal?.github,
+        summary: empty.summary,
+        skills: [],
+        technicalSkills: [],
+        softSkills: [],
+        experience: [],
+        projects: [],
+        education: [],
+        certifications: [],
+        languages: [],
+        parsedData: empty,
       };
     }
 
-    const email = text.match(/[\w.-]+@[\w.-]+\.\w+/)?.[0] || null;
-    const phone = text.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{2,9}/)?.[0] || null;
-    const linkedin = text.match(/https?:\/\/(www\.)?linkedin\.com\/[^\s,)]+/i)?.[0] || null;
-    const github = text.match(/https?:\/\/(www\.)?github\.com\/[^\s,)]+/i)?.[0] || null;
-
-    // Remove URLs and contact info to find potential name (first strong line)
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    let name = null;
-    for (const line of lines) {
-      if (line.length > 2 && line.length < 60 && !line.includes('@') && !line.includes('http') && !line.includes('Sophisticated')) {
-        name = line;
-        break;
-      }
-    }
-
-    // Try to get summary (first paragraph after name)
-    let summary = null;
-    const nameIdx = name ? lines.indexOf(name) : -1;
-    if (nameIdx >= 0 && nameIdx + 1 < lines.length) {
-      summary = lines[nameIdx + 1];
-    }
-
+    // Use ATS parser for structured extraction
+    const parsed = atsParser.parse(text);
+    
     return {
-      name,
-      email,
-      phone,
-      location: null,
-      LinkedIn: linkedin,
-      GitHub: github,
-      Portfolio: null,
-      summary,
-      skills: [],
-      technicalSkills: [],
-      softSkills: [],
-      experience: [],
-      projects: [],
-      education: [],
-      certifications: [],
-      languages: [],
+      name: parsed.personal?.name,
+      email: parsed.personal?.email,
+      phone: parsed.personal?.phone,
+      location: parsed.personal?.location,
+      LinkedIn: parsed.personal?.linkedin,
+      GitHub: parsed.personal?.github,
+      summary: parsed.summary,
+      skills: flattenSkills(parsed.skills),
+      experience: parsed.experience,
+      projects: parsed.projects,
+      education: parsed.education,
+      certifications: parsed.certifications,
+      languages: parsed.languages || [],
+      parsedData: parsed,
     };
   }
+}
+
+/**
+ * Flatten categorized skills into a single array
+ */
+function flattenSkills(categorized) {
+  if (!categorized) return [];
+  const all = [];
+  for (const category of Object.values(categorized)) {
+    if (Array.isArray(category)) {
+      all.push(...category);
+    }
+  }
+  return [...new Set(all)];
 }
 
 export const geminiResumeParser = new GeminiResumeParser();

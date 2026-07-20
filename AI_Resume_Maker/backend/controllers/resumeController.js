@@ -58,6 +58,26 @@ export const uploadResume = async (req, res, next) => {
       throw error;
     }
 
+    // Log parsed data structure for verification
+    console.log('[RESUME] Upload - Parsed data structure:', {
+      hasPersonalInfo: !!parsedData.personalInfo,
+      hasSummary: !!parsedData.summary,
+      hasSkills: !!parsedData.skills,
+      educationCount: parsedData.education?.length || 0,
+      experienceCount: parsedData.experience?.length || 0,
+      projectsCount: parsedData.projects?.length || 0,
+      certificationsCount: parsedData.certifications?.length || 0,
+      achievementsCount: parsedData.achievements?.length || 0,
+      languagesCount: parsedData.languages?.length || 0,
+      linksCount: Object.keys(parsedData.links || {}).length > 0,
+      customSectionsCount: parsedData.customSections?.length || 0,
+      internshipsCount: parsedData.internships?.length || 0,
+      publicationsCount: parsedData.publications?.length || 0,
+      researchCount: parsedData.research?.length || 0,
+      volunteeringCount: parsedData.volunteering?.length || 0,
+      leadershipCount: parsedData.leadership?.length || 0,
+    });
+
     const { skills, experience, education, projects, summary } = parsedData;
 
     const resume = await saveResumeMetadata({
@@ -233,6 +253,26 @@ export const replaceResumeFile = async (req, res, next) => {
       }
       throw error;
     }
+
+    // Log parsed data structure for verification
+    console.log('[RESUME] Replace - Parsed data structure:', {
+      hasPersonalInfo: !!parsedData.personalInfo,
+      hasSummary: !!parsedData.summary,
+      hasSkills: !!parsedData.skills,
+      educationCount: parsedData.education?.length || 0,
+      experienceCount: parsedData.experience?.length || 0,
+      projectsCount: parsedData.projects?.length || 0,
+      certificationsCount: parsedData.certifications?.length || 0,
+      achievementsCount: parsedData.achievements?.length || 0,
+      languagesCount: parsedData.languages?.length || 0,
+      linksCount: Object.keys(parsedData.links || {}).length > 0,
+      customSectionsCount: parsedData.customSections?.length || 0,
+      internshipsCount: parsedData.internships?.length || 0,
+      publicationsCount: parsedData.publications?.length || 0,
+      researchCount: parsedData.research?.length || 0,
+      volunteeringCount: parsedData.volunteering?.length || 0,
+      leadershipCount: parsedData.leadership?.length || 0,
+    });
 
     const { skills, experience, education, projects, summary } = parsedData;
 

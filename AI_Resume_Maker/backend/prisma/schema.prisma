@@ -5,7 +5,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
+// ============================================================
+// USER & AUTH
+// ============================================================
 
 model User {
   id            Int           @id @default(autoincrement())
@@ -18,48 +23,137 @@ model User {
   resumes       Resume[]
   applications  Application[]
   savedJobs     SavedJob[]
-  resumeEmbeds  ResumeEmbedding[]
-  jobEmbeds     JobEmbedding[]
 }
+
+// ============================================================
+// RESUME ENGINE V2 - NEW ARCHITECTURE
+// ============================================================
 
 model Resume {
-  id              Int               @id @default(autoincrement())
-  userId          Int
-  title           String
-  content         String
-  fileUrl         String?
-  originalText    String?
-  parsedData      Json?
-  skills          Json?
-  experience      Json?
-  education       Json?
-  projects        Json?
-  summary         String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  user            User              @relation(fields: [userId], references: [id])
-  applications    Application[]
-  embeddings      ResumeEmbedding[]
+  id               Int               @id @default(autoincrement())
+  userId           Int
+  title            String
+  fileUrl          String?
+  originalFilename String?
+  
+  // JSONB fields - THESE ARE THE SOURCE OF TRUTH
+  baseResumeJSON   Json              @default("{}")
+  tailoredResumeJSON Json             @default("{}")
+  
+  // Template and version
+  template         String            @default("modern")
+  version          String            @default("1.0")
+  status           String            @default("draft") // draft, active, archived
+  
+  // Embeddings for semantic search (pgvector)
+  skillsEmbedding  Unsupported("vector(384)")?
+  experienceEmbedding Unsupported("vector(384)")?
+  educationEmbedding Unsupported("vector(384)")?
+  projectsEmbedding Unsupported("vector(384)")?
+  summaryEmbedding Unsupported("vector(384)")?
+  
+  // Metadata
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  // Relations
+  user             User              @relation(fields: [userId], references: [id])
+  applications     Application[]
+  tailoredVersions TailoredResume[]
+  history          ResumeVersion[]
+  
+  @@index([userId])
+  @@index([status])
 }
 
+model TailoredResume {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  resumeId       Int
+  jobId          Int?
+  
+  title          String
+  jobDescription String?
+  tone           String    @default("professional")
+  optimization   String    @default("balanced")
+  
+  content        Json
+  atsScore       Int?
+  matchScore     Int?
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  user           User      @relation(fields: [userId], references: [id])
+  resume         Resume    @relation(fields: [resumeId], references: [id])
+  job            Job?      @relation(fields: [jobId], references: [id])
+  
+  @@index([userId])
+  @@index([resumeId])
+  @@index([jobId])
+}
+
+model ResumeVersion {
+  id         Int      @id @default(autoincrement())
+  resumeId   Int
+  version    Int
+  content    Json
+  changeNote String?
+  createdAt  DateTime @default(now())
+  
+  resume     Resume   @relation(fields: [resumeId], references: [id])
+  
+  @@index([resumeId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// JOB & APPLICATIONS
+// ============================================================
+
 model Job {
-  id              Int               @id @default(autoincrement())
-  title           String
-  company         String
-  location        String?
-  description     String
-  url             String?
-  source          String?           @default("manual")
-  salary          String?
-  employmentType  String?
-  isRemote        Boolean           @default(false)
-  skills          Json?
-  benefits        Json?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  applications    Application[]
-  savedBy         SavedJob[]
-  embeddings      JobEmbedding[]
+  id                Int               @id @default(autoincrement())
+  userId            Int?
+  title             String
+  company           String
+  location          String?
+  salary            String?
+  experience        String?
+  employmentType    String?
+  workMode          String?
+  description       String?
+  responsibilities  String?
+  qualifications    String?
+  requiredSkills    Json?
+  preferredSkills   Json?
+  keywords          Json?
+  source            String?           @default("manual")
+  jobUrl            String?
+  companyLogo       String?
+  postedDate        String?
+  matchScore        Int?
+  atsScore          Int?
+  missingSkills     Json?
+  matchingSkills    Json?
+  analysis          Json?
+  tailoredResumeId  Int?
+  coverLetterId     Int?
+  
+  // Embeddings for semantic search (pgvector)
+  skillsEmbedding  Unsupported("vector(384)")?
+  descriptionEmbedding Unsupported("vector(384)")?
+  responsibilitiesEmbedding Unsupported("vector(384)")?
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  user              User?               @relation(fields: [userId], references: [id])
+  applications      Application[]
+  savedBy           SavedJob[]
+  tailoredVersions  TailoredResume[]
+  
+  @@index([userId])
+  @@index([jobUrl])
+  @@unique([userId, jobUrl])
 }
 
 model Application {
@@ -80,26 +174,6 @@ model SavedJob {
   id              Int       @id @default(autoincrement())
   userId          Int
   jobId           Int
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id])
-  job             Job       @relation(fields: [jobId], references: [id])
-}
-
-model ResumeEmbedding {
-  id              Int       @id @default(autoincrement())
-  userId          Int
-  resumeId        Int
-  embedding       String
-  createdAt       DateTime  @default(now())
-  user            User      @relation(fields: [userId], references: [id])
-  resume          Resume    @relation(fields: [resumeId], references: [id])
-}
-
-model JobEmbedding {
-  id              Int       @id @default(autoincrement())
-  userId          Int
-  jobId           Int
-  embedding       String
   createdAt       DateTime  @default(now())
   user            User      @relation(fields: [userId], references: [id])
   job             Job       @relation(fields: [jobId], references: [id])

@@ -252,105 +252,334 @@ export default function ResumePage() {
   // ---- ParsedData view ----
   const renderParsedData = (data) => {
     if (!data) return null;
+    
+    // Helper to render personal info
+    const renderPersonalInfo = () => {
+      const personal = data.personalInfo || data;
+      return (
+        <>
+          {(personal.name || data.name) && (
+            <Typography variant="h5" fontWeight={700} gutterBottom>{personal.name || data.name}</Typography>
+          )}
+          <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
+            {(personal.email || data.email) && <Chip label={personal.email || data.email} variant="outlined" />}
+            {(personal.phone || data.phone) && <Chip label={personal.phone || data.phone} variant="outlined" />}
+            {(personal.location || data.location) && <Chip label={personal.location || data.location} variant="outlined" />}
+            {(personal.city || data.city) && <Chip label={personal.city || data.city} variant="outlined" />}
+            {(personal.country || data.country) && <Chip label={personal.country || data.country} variant="outlined" />}
+          </Stack>
+        </>
+      );
+    };
+
+    // Helper to render links
+    const renderLinks = () => {
+      const links = data.links || {};
+      const linkFields = [
+        { key: 'linkedin', label: 'LinkedIn' },
+        { key: 'github', label: 'GitHub' },
+        { key: 'portfolio', label: 'Portfolio' },
+        { key: 'website', label: 'Website' },
+        { key: 'gfg', label: 'GeeksforGeeks' },
+        { key: 'scaler', label: 'Scaler' },
+        { key: 'medium', label: 'Medium' },
+        { key: 'hashnode', label: 'Hashnode' },
+        { key: 'devto', label: 'Dev.to' },
+        { key: 'kaggle', label: 'Kaggle' },
+        { key: 'stackoverflow', label: 'Stack Overflow' },
+        { key: 'leetcode', label: 'LeetCode' },
+        { key: 'codeforces', label: 'Codeforces' },
+        { key: 'codechef', label: 'CodeChef' },
+        { key: 'behance', label: 'Behance' },
+        { key: 'dribbble', label: 'Dribbble' },
+        { key: 'gitlab', label: 'GitLab' },
+        { key: 'bitbucket', label: 'Bitbucket' },
+        { key: 'twitter', label: 'Twitter' },
+      ];
+      
+      const hasLinks = linkFields.some(f => links[f.key]) || (links.other && links.other.length > 0);
+      if (!hasLinks) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>Links</Typography>
+          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+            {linkFields.filter(f => links[f.key]).map(f => (
+              <Chip key={f.key} label={f.label} component="a" href={links[f.key]} clickable variant="outlined" size="small" />
+            ))}
+            {links.other && links.other.map((url, i) => (
+              <Chip key={`other-${i}`} label={url} component="a" href={url} clickable variant="outlined" size="small" />
+            ))}
+          </Stack>
+        </Box>
+      );
+    };
+
+    // Helper to render skills (categorized or flat)
+    const renderSkills = () => {
+      const skills = data.skills;
+      if (!skills) return null;
+      
+      // If skills is an object with categories
+      if (typeof skills === 'object' && !Array.isArray(skills)) {
+        const categories = Object.entries(skills).filter(([_, arr]) => Array.isArray(arr) && arr.length > 0);
+        if (categories.length === 0) return null;
+        
+        return (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Skills</Typography>
+            {categories.map(([category, skillList]) => (
+              <Box key={category} sx={{ mb: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>{category}</Typography>
+                <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                  {skillList.map((s, i) => <Chip key={i} label={typeof s === 'string' ? s : s.name || s} size="small" variant="outlined" />)}
+                </Stack>
+              </Box>
+            ))}
+          </Box>
+        );
+      }
+      
+      // If skills is a flat array
+      if (Array.isArray(skills) && skills.length > 0) {
+        return (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Skills</Typography>
+            <Stack direction="row" flexWrap="wrap" gap={0.5}>
+              {skills.map((s, i) => <Chip key={i} label={typeof s === 'string' ? s : s.name || s} size="small" color="primary" variant="outlined" />)}
+            </Stack>
+          </Box>
+        );
+      }
+      
+      return null;
+    };
+
+    // Helper to render experience
+    const renderExperience = () => {
+      const experience = data.experience;
+      if (!experience || !Array.isArray(experience) || experience.length === 0) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>Experience</Typography>
+          {experience.map((exp, i) => (
+            <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
+              <Typography variant="subtitle2" fontWeight={600}>{exp.designation || exp.title || exp.role} @ {exp.company}</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {exp.location && `${exp.location} | `}{exp.duration || `${exp.startDate} - ${exp.endDate || 'Present'}`}
+              </Typography>
+              {exp.employmentType && (
+                <Typography variant="caption" color="text.secondary" display="block">{exp.employmentType}</Typography>
+              )}
+              {exp.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{exp.description}</Typography>
+              )}
+              {exp.bullets && exp.bullets.length > 0 && (
+                <Box sx={{ mt: 0.5 }}>
+                  {exp.bullets.map((bullet, j) => (
+                    <Typography key={j} variant="body2" color="text.secondary" sx={{ pl: 2 }}>• {bullet}</Typography>
+                  ))}
+                </Box>
+              )}
+              {exp.technologies && exp.technologies.length > 0 && (
+                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                  {exp.technologies.map((t, j) => <Chip key={j} label={t} size="small" variant="outlined" />)}
+                </Stack>
+              )}
+            </Card>
+          ))}
+        </Box>
+      );
+    };
+
+    // Helper to render education
+    const renderEducation = () => {
+      const education = data.education;
+      if (!education || !Array.isArray(education) || education.length === 0) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>Education</Typography>
+          {education.map((edu, i) => (
+            <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
+              <Typography variant="subtitle2" fontWeight={600}>{edu.degree}</Typography>
+              {edu.specialization && (
+                <Typography variant="body2" color="text.secondary">{edu.specialization}</Typography>
+              )}
+              <Typography variant="body2" color="text.secondary">
+                {edu.college || edu.university || edu.institution}{edu.location && ` | ${edu.location}`}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {edu.startYear && edu.endYear ? `${edu.startYear} - ${edu.endYear}` : (edu.year || '')}
+                {edu.current && ' (Current)'}
+              </Typography>
+              {(edu.cgpa || edu.percentage) && (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {edu.cgpa && `CGPA: ${edu.cgpa}`}{edu.cgpa && edu.percentage && ' | '}{edu.percentage && `Percentage: ${edu.percentage}`}
+                </Typography>
+              )}
+              {edu.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{edu.description}</Typography>
+              )}
+            </Card>
+          ))}
+        </Box>
+      );
+    };
+
+    // Helper to render projects
+    const renderProjects = () => {
+      const projects = data.projects;
+      if (!projects || !Array.isArray(projects) || projects.length === 0) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>Projects</Typography>
+          {projects.map((proj, i) => (
+            <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
+              <Typography variant="subtitle2" fontWeight={600}>{proj.title}</Typography>
+              {proj.description && (
+                <Typography variant="body2" color="text.secondary">{proj.description}</Typography>
+              )}
+              {proj.technologies && proj.technologies.length > 0 && (
+                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                  {proj.technologies.map((t, j) => <Chip key={j} label={t} size="small" variant="outlined" />)}
+                </Stack>
+              )}
+              {(proj.github || proj.deployment || proj.demo) && (
+                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                  {proj.github && <Chip label="GitHub" component="a" href={proj.github} clickable size="small" variant="outlined" />}
+                  {proj.deployment && <Chip label="Live" component="a" href={proj.deployment} clickable size="small" variant="outlined" />}
+                  {proj.demo && <Chip label="Demo" component="a" href={proj.demo} clickable size="small" variant="outlined" />}
+                </Stack>
+              )}
+              {proj.responsibilities && proj.responsibilities.length > 0 && (
+                <Box sx={{ mt: 0.5 }}>
+                  {proj.responsibilities.map((resp, j) => (
+                    <Typography key={j} variant="body2" color="text.secondary" sx={{ pl: 2 }}>• {resp}</Typography>
+                  ))}
+                </Box>
+              )}
+              {proj.features && proj.features.length > 0 && (
+                <Box sx={{ mt: 0.5 }}>
+                  {proj.features.map((feat, j) => (
+                    <Typography key={j} variant="body2" color="text.secondary" sx={{ pl: 2 }}>• {feat}</Typography>
+                  ))}
+                </Box>
+              )}
+            </Card>
+          ))}
+        </Box>
+      );
+    };
+
+    // Helper to render certifications
+    const renderCertifications = () => {
+      const certifications = data.certifications;
+      if (!certifications || !Array.isArray(certifications) || certifications.length === 0) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>Certifications</Typography>
+          {certifications.map((cert, i) => (
+            <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
+              <Typography variant="subtitle2" fontWeight={600}>{typeof cert === 'string' ? cert : cert.name}</Typography>
+              {typeof cert === 'object' && (
+                <>
+                  {cert.provider && (
+                    <Typography variant="body2" color="text.secondary">{cert.provider}</Typography>
+                  )}
+                  {(cert.issueDate || cert.expiry) && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {cert.issueDate && `Issued: ${cert.issueDate}`}{cert.issueDate && cert.expiry && ' | '}{cert.expiry && `Expires: ${cert.expiry}`}
+                    </Typography>
+                  )}
+                  {cert.credentialUrl && (
+                    <Chip label="View Credential" component="a" href={cert.credentialUrl} clickable size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                  )}
+                </>
+              )}
+            </Card>
+          ))}
+        </Box>
+      );
+    };
+
+    // Helper to render custom sections
+    const renderCustomSections = () => {
+      const customSections = data.customSections;
+      if (!customSections || !Array.isArray(customSections) || customSections.length === 0) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          {customSections.map((section, i) => (
+            <Box key={i} sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>{section.title}</Typography>
+              <Typography variant="body2" color="text.secondary">{section.content}</Typography>
+            </Box>
+          ))}
+        </Box>
+      );
+    };
+
+    // Helper to render array sections
+    const renderArraySection = (key, label) => {
+      const items = data[key];
+      if (!items || !Array.isArray(items) || items.length === 0) return null;
+      
+      return (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>{label}</Typography>
+          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+            {items.map((item, i) => (
+              <Chip key={i} label={typeof item === 'string' ? item : item.title || item.name || item} size="small" variant="outlined" />
+            ))}
+          </Stack>
+        </Box>
+      );
+    };
+
     return (
       <Box>
-        {data.name && (
-          <Typography variant="h5" fontWeight={700} gutterBottom>{data.name}</Typography>
-        )}
-        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
-          {data.email && <Chip label={data.email} variant="outlined" />}
-          {data.phone && <Chip label={data.phone} variant="outlined" />}
-          {data.location && <Chip label={data.location} variant="outlined" />}
-          {data.LinkedIn && <Chip label="LinkedIn" component="a" href={data.LinkedIn} clickable variant="outlined" />}
-          {data.GitHub && <Chip label="GitHub" component="a" href={data.GitHub} clickable variant="outlined" />}
-          {data.Portfolio && <Chip label="Portfolio" component="a" href={data.Portfolio} clickable variant="outlined" />}
-        </Stack>
+        {renderPersonalInfo()}
+        {renderLinks()}
         {data.summary && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>Summary</Typography>
             <Typography variant="body2" color="text.secondary">{data.summary}</Typography>
           </Box>
         )}
-        {data.skills?.length > 0 && (
+        {data.objective && (
           <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Skills</Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {data.skills.map((s, i) => <Chip key={i} label={s} size="small" color="primary" variant="outlined" />)}
-            </Stack>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Objective</Typography>
+            <Typography variant="body2" color="text.secondary">{data.objective}</Typography>
           </Box>
         )}
-        {data.technicalSkills?.length > 0 && (
+        {renderSkills()}
+        {renderExperience()}
+        {data.internships && data.internships.length > 0 && (
           <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Tech Skills</Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {data.technicalSkills.map((s, i) => <Chip key={i} label={s} size="small" color="info" variant="outlined" />)}
-            </Stack>
-          </Box>
-        )}
-        {data.softSkills?.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Soft Skills</Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {data.softSkills.map((s, i) => <Chip key={i} label={s} size="small" color="success" variant="outlined" />)}
-            </Stack>
-          </Box>
-        )}
-        {data.experience?.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Experience</Typography>
-            {data.experience.map((exp, i) => (
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Internships</Typography>
+            {data.internships.map((exp, i) => (
               <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
-                <Typography variant="subtitle2" fontWeight={600}>{exp.title} @ {exp.company}</Typography>
-                <Typography variant="caption" color="text.secondary" display="block">{exp.location} | {exp.dates}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{exp.description}</Typography>
+                <Typography variant="subtitle2" fontWeight={600}>{exp.designation || exp.title} @ {exp.company}</Typography>
+                <Typography variant="caption" color="text.secondary" display="block">{exp.duration || `${exp.startDate} - ${exp.endDate || 'Present'}`}</Typography>
+                {exp.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{exp.description}</Typography>}
               </Card>
             ))}
           </Box>
         )}
-        {data.projects?.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Projects</Typography>
-            {data.projects.map((proj, i) => (
-              <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
-                <Typography variant="subtitle2" fontWeight={600}>{proj.title}</Typography>
-                <Typography variant="body2" color="text.secondary">{proj.description}</Typography>
-                {proj.technologies?.length > 0 && (
-                  <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-                    {proj.technologies.map((t, j) => <Chip key={j} label={t} size="small" variant="outlined" />)}
-                  </Stack>
-                )}
-              </Card>
-            ))}
-          </Box>
-        )}
-        {data.education?.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Education</Typography>
-            {data.education.map((edu, i) => (
-              <Card key={i} variant="outlined" sx={{ p: 2, mb: 1 }} elevation={0}>
-                <Typography variant="subtitle2" fontWeight={600}>{edu.degree}</Typography>
-                <Typography variant="body2" color="text.secondary">{edu.university} | {edu.dates}</Typography>
-                {edu.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{edu.description}</Typography>}
-              </Card>
-            ))}
-          </Box>
-        )}
-        {data.certifications?.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Certifications</Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {data.certifications.map((c, i) => <Chip key={i} label={c} size="small" color="warning" variant="outlined" />)}
-            </Stack>
-          </Box>
-        )}
-        {data.languages?.length > 0 && (
-          <Box>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>Languages</Typography>
-            <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {data.languages.map((l, i) => <Chip key={i} label={l} size="small" variant="outlined" />)}
-            </Stack>
-          </Box>
-        )}
+        {renderProjects()}
+        {renderEducation()}
+        {renderCertifications()}
+        {renderArraySection('achievements', 'Achievements')}
+        {renderArraySection('languages', 'Languages')}
+        {renderArraySection('publications', 'Publications')}
+        {renderArraySection('research', 'Research')}
+        {renderArraySection('volunteering', 'Volunteering')}
+        {renderArraySection('leadership', 'Leadership')}
+        {renderCustomSections()}
       </Box>
     );
   };

@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getPool } from '../services/postgres.js';
+import { registerSchema, loginSchema } from '../middleware/validation.js';
 
-const createAccessToken = (user) => jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'development-secret', { expiresIn: '15m' });
+const createAccessToken = (user) => jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'development-secret', { expiresIn: '7d' });
 const createRefreshToken = (user) => jwt.sign({ id: user.id, type: 'refresh' }, process.env.JWT_SECRET || 'development-secret', { expiresIn: '7d' });
 
 const setRefreshCookie = (res, token) => {
@@ -65,12 +66,9 @@ export const getSession = async (req, res, next) => {
 
 export const register = async (req, res, next) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name } = req.validated || req.body;
     const pool = getPool();
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
 
     // Check if user exists
     const existingUser = await pool.query(
@@ -109,12 +107,9 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.validated || req.body;
     const pool = getPool();
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
 
     const result = await pool.query(
       'SELECT id, email, name, role, "passwordHash" FROM "User" WHERE email = $1',
