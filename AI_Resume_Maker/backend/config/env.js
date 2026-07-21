@@ -17,5 +17,5 @@ export const env = {
    * CLIENT_ORIGIN: Comma-separated list of allowed origins for local development.
    * Can include chrome-extension://* for extension access during development.
    */
-  clientOrigin: process.env.CLIENT_ORIGIN || 'http://127.0.0.1:5173,http://localhost:5173,chrome-extension://*',
+  clientOrigin: process.env.CLIENT_ORIGIN || 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5000,http://localhost:5000,http://127.0.0.1:5001,http://localhost:5001,chrome-extension://*',
 };
