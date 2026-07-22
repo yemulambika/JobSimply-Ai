@@ -1,16 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "JobSimply - Job Application Assistant",
-  "version": "1.0.0",
-  "description": "AI-powered job application assistant for LinkedIn, Naukri, Wellfound, Greenhouse, Lever, Workday, Ashby, and SmartRecruiters",
+  "name": "JobSimply AI - Job Copilot",
+  "version": "2.0.0",
+  "description": "AI-powered job copilot with autofill, resume analysis, job tracking, and intelligent applications for LinkedIn, Naukri, and 15+ job sites",
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_popup": "popup/popup.html",
-    "default_title": "JobSimply",
+    "default_popup": "popup/popup-new.html",
+    "default_title": "JobSimply AI",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -21,7 +21,7 @@
     "service_worker": "background/background.js",
     "type": "module"
   },
-"content_scripts": [
+  "content_scripts": [
     {
       "matches": [
         "http://localhost:5173/*",
@@ -32,8 +32,8 @@
         "https://127.0.0.1:5174/*",
         "http://localhost:5174/*",
         "https://localhost:5174/*",
-        "http://*.linkedin.com/jobs/*",
-        "https://*.linkedin.com/jobs/*",
+        "http://*.linkedin.com/*",
+        "https://*.linkedin.com/*",
         "http://*.naukri.com/*",
         "https://*.naukri.com/*",
         "http://*.indeed.com/*",
@@ -51,21 +51,50 @@
         "http://*.ashby.com/*",
         "https://*.ashby.com/*",
         "http://*.smartrecruiters.com/*",
-        "https://*.smartrecruiters.com/*"
+        "https://*.smartrecruiters.com/*",
+        "http://*.bamboohr.com/*",
+        "https://*.bamboohr.com/*"
       ],
-      "js": ["content/content.js"],
+      "js": ["content/content-enhanced.js"],
       "css": ["content/content.css"],
       "run_at": "document_idle"
     }
   ],
-  "permissions": ["tabs", "storage", "activeTab", "scripting"],
-"host_permissions": [
+  "permissions": [
+    "tabs", 
+    "storage", 
+    "activeTab", 
+    "scripting",
+    "cookies",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
     "http://localhost:5000/*",
     "https://localhost:5000/*",
     "http://localhost:5173/*",
     "https://localhost:5173/*",
     "http://localhost:5174/*",
-    "https://localhost:5174/*"
+    "https://localhost:5174/*",
+    "http://*.linkedin.com/*",
+    "https://*.linkedin.com/*",
+    "http://*.naukri.com/*",
+    "https://*.naukri.com/*",
+    "http://*.indeed.com/*",
+    "https://*.indeed.com/*",
+    "http://*.wellfound.com/*",
+    "https://*.wellfound.com/*",
+    "http://*.greenhouse.io/*",
+    "https://*.greenhouse.io/*",
+    "http://*.lever.co/*",
+    "https://*.lever.co/*",
+    "http://*.workday.com/*",
+    "https://*.workday.com/*",
+    "http://*.ashby.com/*",
+    "https://*.ashby.com/*",
+    "http://*.smartrecruiters.com/*",
+    "https://*.smartrecruiters.com/*",
+    "http://*.bamboohr.com/*",
+    "https://*.bamboohr.com/*"
   ],
   "options_page": "options/options.html",
   "web_accessible_resources": [

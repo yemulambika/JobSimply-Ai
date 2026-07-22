@@ -15,6 +15,8 @@ import profileRoutes from './profileRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import interviewRoutes from './interviewRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import aiRoutes from './aiRoutes.js';
+import jobTrackerRoutes from './jobTrackerRoutes.js';
 
 const router = express.Router();
 
@@ -38,6 +40,8 @@ router.use('/api/profile', profileRoutes); // Extension compatibility
 router.use('/notifications', notificationRoutes);
 router.use('/interviews', interviewRoutes);
 router.use('/admin', adminRoutes);
+router.use('/api/ai', aiRoutes); // AI endpoints for extension
+router.use('/api/tracker', jobTrackerRoutes); // Job tracker endpoints
 router.get('/api/health', healthCheck);
 router.get('/health', healthCheck);
 router.get('/', healthCheck);

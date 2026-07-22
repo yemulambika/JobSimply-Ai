@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobSimply AI</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
+
+    <!-- Not Logged In State -->
+    <div id="auth-section" class="section auth-section hidden">
+      <div class="auth-card">
+        <div class="logo-large">JS</div>
+        <h1 class="auth-title">JobSimply AI</h1>
+        <p class="auth-subtitle">Your AI-Powered Job Copilot</p>
+        <button id="open-website-btn" class="btn btn-primary btn-full">
+          <span class="btn-icon">🔐</span>
+          Sign In to Website
+        </button>
+        <p class="auth-hint">
+          Sign in to JobSimply on your browser to automatically sync your session.
+        </p>
+      </div>
+    </div>
+
+    <!-- Main Dashboard (Logged In) -->
+    <div id="dashboard-section" class="dashboard hidden">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <div class="logo-small">JS</div>
+          <span class="header-title">JobSimply</span>
+        </div>
+        <div class="header-right">
+          <button id="settings-btn" class="icon-btn" title="Settings">
+            ⚙️
+          </button>
+          <button id="logout-btn" class="icon-btn" title="Logout">
+            🚪
+          </button>
+        </div>
+      </header>
+
+      <!-- User Info Bar -->
+      <div id="user-bar" class="user-bar">
+        <div class="user-avatar" id="user-avatar">U</div>
+        <div class="user-info">
+          <span class="user-name" id="user-name">User</span>
+          <span class="user-email" id="user-email">user@email.com</span>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="autofill">
+          <span class="tab-icon">✍️</span>
+          <span class="tab-label">Autofill</span>
+        </button>
+        <button class="tab-btn" data-tab="score">
+          <span class="tab-icon">📊</span>
+          <span class="tab-label">Score</span>
+        </button>
+        <button class="tab-btn" data-tab="jobs">
+          <span class="tab-icon">💼</span>
+          <span class="tab-label">Jobs</span>
+        </button>
+        <button class="tab-btn" data-tab="tracker">
+          <span class="tab-icon">📋</span>
+          <span class="tab-label">Tracker</span>
+        </button>
+        <button class="tab-btn" data-tab="profile">
+          <span class="tab-icon">👤</span>
+          <span class="tab-label">Profile</span>
+        </button>
+      </nav>
+
+      <!-- Tab Content -->
+      <div class="tab-content">
+        <!-- Autofill Tab -->
+        <div id="tab-autofill" class="tab-panel active">
+          <div class="panel-header">
+            <h2>AI Autofill</h2>
+            <p>Automatically fill job applications with your profile data</p>
+          </div>
+          
+          <div id="autofill-job-card" class="job-card-compact hidden">
+            <div class="job-card-header">
+              <h3 id="af-job-title">Job Title</h3>
+              <span id="af-job-company" class="company-badge">Company</span>
+            </div>
+            <div class="job-card-meta">
+              <span id="af-job-location">📍 Location</span>
+              <span id="af-job-source">Source</span>
+            </div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-icon">🤖</div>
+            <div class="status-text">
+              <h4>AI Autofill Ready</h4>
+              <p id="af-status-text">Navigate to a job application page to autofill</p>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="af-start-btn" class="btn btn-primary btn-full">
+              Start Autofill
+            </button>
+            <button id="af-profile-btn" class="btn btn-secondary btn-full">
+              Update Profile
+            </button>
+          </div>
+
+          <div id="autofill-fields" class="fields-list hidden">
+            <h4>Detected Fields</h4>
+            <div id="fields-container"></div>
+          </div>
+        </div>
+
+        <!-- Score Tab -->
+        <div id="tab-score" class="tab-panel">
+          <div class="panel-header">
+            <h2>Resume Score</h2>
+            <p>Analyze your resume against job requirements</p>
+          </div>
+
+          <div id="score-job-card" class="job-card-compact hidden">
+            <div class="job-card-header">
+              <h3 id="score-job-title">Job Title</h3>
+              <span id="score-job-company" class="company-badge">Company</span>
+            </div>
+          </div>
+
+          <div id="score-display" class="score-display hidden">
+            <div class="score-circle">
+              <svg viewBox="0 0 100 100">
+                <circle class="score-bg" cx="50" cy="50" r="45"/>
+                <circle id="score-progress" class="score-progress" cx="50" cy="50" r="45" stroke-dasharray="283" stroke-dashoffset="283"/>
+              </svg>
+              <div class="score-value">
+                <span id="score-number">0</span>
+                <span class="score-label">ATS</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="keywords-analysis" class="keywords-section hidden">
+            <div class="keywords-group">
+              <h4 class="keywords-title matched">✓ Matched Keywords</h4>
+              <div id="matched-keywords" class="keywords-chips matched"></div>
+            </div>
+            <div class="keywords-group">
+              <h4 class="keywords-title missing">✗ Missing Keywords</h4>
+              <div id="missing-keywords" class="keywords-chips missing"></div>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="score-analyze-btn" class="btn btn-primary btn-full">
+              Analyze Resume
+            </button>
+            <button id="score-tailor-btn" class="btn btn-secondary btn-full hidden">
+              Generate Tailored Resume
+            </button>
+          </div>
+        </div>
+
+        <!-- Jobs Tab -->
+        <div id="tab-jobs" class="tab-panel">
+          <div class="panel-header">
+            <h2>Saved Jobs</h2>
+            <button id="refresh-jobs-btn" class="btn btn-small">↻</button>
+          </div>
+
+          <div id="saved-jobs-list" class="jobs-list">
+            <!-- Jobs will be populated here -->
+          </div>
+
+          <div id="no-jobs" class="empty-state">
+            <div class="empty-icon">💼</div>
+            <h4>No Saved Jobs</h4>
+            <p>Save jobs from job boards to track them here</p>
+            <button id="find-jobs-btn" class="btn btn-primary btn-full">
+              Find Jobs
+            </button>
+          </div>
+        </div>
+
+        <!-- Tracker Tab -->
+        <div id="tab-tracker" class="tab-panel">
+          <div class="panel-header">
+            <h2>Job Tracker</h2>
+            <select id="tracker-filter" class="select-small">
+              <option value="all">All</option>
+              <option value="applied">Applied</option>
+              <option value="interview">Interview</option>
+              <option value="offer">Offer</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div id="tracker-stats" class="tracker-stats">
+            <div class="stat-item">
+              <span class="stat-value" id="stat-applied">0</span>
+              <span class="stat-label">Applied</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="stat-interviews">0</span>
+              <span class="stat-label">Interviews</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="stat-offers">0</span>
+              <span class="stat-label">Offers</span>
+            </div>
+          </div>
+
+          <div id="tracker-list" class="tracker-list">
+            <!-- Applications will be populated here -->
+          </div>
+        </div>
+
+        <!-- Profile Tab -->
+        <div id="tab-profile" class="tab-panel">
+          <div class="panel-header">
+            <h2>My Profile</h2>
+            <button id="edit-profile-btn" class="btn btn-small">✏️</button>
+          </div>
+
+          <div id="profile-view" class="profile-view">
+            <div class="profile-section">
+              <h4>Personal</h4>
+              <div class="profile-field">
+                <span class="field-label">Name</span>
+                <span id="pf-name" class="field-value">-</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Email</span>
+                <span id="pf-email" class="field-value">-</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Phone</span>
+                <span id="pf-phone" class="field-value">-</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Location</span>
+                <span id="pf-location" class="field-value">-</span>
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <h4>Professional</h4>
+              <div class="profile-field">
+                <span class="field-label">Current CTC</span>
+                <span id="pf-ctc" class="field-value">-</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Expected</span>
+                <span id="pf-expected" class="field-value">-</span>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Notice</span>
+                <span id="pf-notice" class="field-value">-</span>
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <h4>Skills</h4>
+              <div id="pf-skills" class="skills-display">-</div>
+            </div>
+          </div>
+
+          <div id="profile-edit" class="profile-edit hidden">
+            <form id="profile-form">
+              <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="edit-name" />
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="edit-email" />
+              </div>
+              <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" id="edit-phone" />
+              </div>
+              <div class="form-group">
+                <label>Location</label>
+                <input type="text" id="edit-location" />
+              </div>
+              <div class="form-actions">
+                <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="action-buttons">
+            <button id="upload-resume-btn" class="btn btn-primary btn-full">
+              Upload Resume
+            </button>
+            <button id="sync-profile-btn" class="btn btn-secondary btn-full">
+              Sync with Website
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notifications -->
+      <div id="toast" class="toast hidden">
+        <span id="toast-message">Notification</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
