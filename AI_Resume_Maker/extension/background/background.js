@@ -10,8 +10,7 @@ import {
   getAccessToken,
   isAuthenticated 
 } from '../services/authManager.js';
-
-const API_BASE = 'http://localhost:5000';
+import { getApiUrl, getMaxRetries, loadConfig } from '../services/config.js';
 
 // Auth state
 let authState = {
@@ -207,7 +206,7 @@ async function proxyApiRequest(request) {
       options.body = JSON.stringify(body);
     }
     
-    const response = await fetch(`${API_BASE}${endpoint}`, options);
+    const response = await fetch(getApiUrl(endpoint), options);
     const data = await response.json();
     
     if (!response.ok) {
@@ -231,7 +230,7 @@ async function extractAndSendJob(job) {
       return { success: false, error: 'Not authenticated' };
     }
     
-    const response = await fetch(`${API_BASE}/api/jobs/extract`, {
+    const response = await fetch(getApiUrl('/api/jobs/extract'), {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${token}`,
@@ -272,7 +271,7 @@ async function syncJobToBackend(job) {
     const token = await getValidToken();
     if (!token) return;
     
-    await fetch(`${API_BASE}/api/jobs/extract`, {
+    await fetch(getApiUrl('/api/jobs/extract'), {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${token}`,
@@ -320,7 +319,7 @@ async function syncSavedJobsToBackend(jobs) {
     const token = await getValidToken();
     if (!token) return;
     
-    await fetch(`${API_BASE}/api/jobs/sync`, {
+    await fetch(getApiUrl('/api/jobs/sync'), {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${token}`,
@@ -367,6 +366,9 @@ function setSettings(settings) {
 }
 
 // Initialize auth on script load
-initializeAuth().then(updateAuthState);
+// Load config first, then initialize auth
+loadConfig().then(() => {
+  initializeAuth().then(updateAuthState);
+});
 
 console.log('[BG] Background service worker initialized');
