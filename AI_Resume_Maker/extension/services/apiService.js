@@ -1,7 +1,7 @@
 // API Service - Single endpoint for job extraction only
 // All AI processing happens on the website/backend
 
-const API_BASE = 'http://localhost:5000';
+import { getApiBase, getMaxRetries } from './config.js';
 
 // Global state for current token - shared across all API calls
 let currentToken = null;
@@ -23,7 +23,7 @@ async function refreshAuthToken() {
   if (!refreshTokenInProgress) {
     refreshTokenInProgress = (async () => {
       try {
-        const response = await fetch(`${API_BASE}/auth/refresh`, {
+        const response = await fetch(`${getApiBase()}/auth/refresh`, {
           method: 'POST',
           credentials: 'include', // Include cookies for refresh token
           headers: {
@@ -61,7 +61,7 @@ export async function extractJob(job, token) {
     throw new Error('No authentication token provided. Please log in to JobSimply website first.');
   }
   
-  const response = await fetch(`${API_BASE}/api/jobs/extract`, {
+  const response = await fetch(`${getApiBase()}/api/jobs/extract`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${activeToken}`,
@@ -79,7 +79,7 @@ export async function extractJob(job, token) {
     
     if (newToken) {
       // Retry with new token
-      const retryResponse = await fetch(`${API_BASE}/api/jobs/extract`, {
+      const retryResponse = await fetch(`${getApiBase()}/api/jobs/extract`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${newToken}`,
@@ -112,7 +112,7 @@ export async function extractJob(job, token) {
 // Check session status - can be called to verify auth
 export async function checkSession() {
   try {
-    const response = await fetch(`${API_BASE}/auth/session`, {
+    const response = await fetch(`${getApiBase()}/auth/session`, {
       method: 'GET',
       credentials: 'include',
       headers: {

@@ -84,14 +84,24 @@
   box-sizing: border-box;
 }
 
+/* Chrome extension popup constraints - ensures popup stays within browser window */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
-  width: 380px;
+  /* Fixed width between 380-420px - Chrome positions this automatically */
+  width: 400px;
   min-height: 520px;
   max-height: 600px;
   font-family: var(--font-family);
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
+  /* Prevent any margin or padding issues */
+  margin: 0;
+  padding: 0;
 }
 
 .app {

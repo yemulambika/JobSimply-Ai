@@ -1,63 +1,21 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { getPool } from '../services/postgres.js';
-import { registerSchema, loginSchema } from '../middleware/validation.js';
-
-const createAccessToken = (user) => jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'development-secret', { expiresIn: '7d' });
-const createRefreshToken = (user) => jwt.sign({ id: user.id, type: 'refresh' }, process.env.JWT_SECRET || 'development-secret', { expiresIn: '7d' });
-
-const setRefreshCookie = (res, token) => {
-  res.cookie('refreshToken', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-};
+import { authService } from '../core/services/auth/AuthService.js';
 
 // Get current session - checks refresh token cookie and returns user info
 export const getSession = async (req, res, next) => {
   try {
-    // First check for refresh token cookie (session-based auth)
     const refreshToken = req.cookies?.refreshToken;
     
     if (!refreshToken) {
       return res.status(200).json({ authenticated: false });
     }
 
-    // Verify the refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || 'development-secret');
+    const result = await authService.getSession(refreshToken);
     
-    if (!decoded || decoded.type !== 'refresh') {
-      return res.status(200).json({ authenticated: false });
+    if (result.authenticated) {
+      authService.setRefreshCookie(res, result.refreshToken);
     }
 
-    // Get user from database
-    const pool = getPool();
-    const result = await pool.query(
-      'SELECT id, email, name, role FROM "User" WHERE id = $1',
-      [decoded.id]
-    );
-
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(200).json({ authenticated: false });
-    }
-
-    // Return session info
-    const accessToken = createAccessToken(user);
-    const newRefreshToken = createRefreshToken(user);
-    setRefreshCookie(res, newRefreshToken);
-
-    res.status(200).json({
-      authenticated: true,
-      token: accessToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
-    });
+    res.status(200).json(result);
   } catch (error) {
     // Token expired or invalid - return not authenticated
     res.status(200).json({ authenticated: false });
@@ -67,40 +25,17 @@ export const getSession = async (req, res, next) => {
 export const register = async (req, res, next) => {
   try {
     const { email, password, name } = req.validated || req.body;
-    const pool = getPool();
-
-
-    // Check if user exists
-    const existingUser = await pool.query(
-      'SELECT id FROM "User" WHERE email = $1',
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({ message: 'User already exists' });
-    }
-
-    // Create new user
-    const passwordHash = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      `INSERT INTO "User" (email, "passwordHash", name, role, "createdAt", "updatedAt")
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-       RETURNING id, email, name, role`,
-      [email, passwordHash, name || null, 'user']
-    );
-
-    const user = result.rows[0];
-    const accessToken = createAccessToken(user);
-    const refreshToken = createRefreshToken(user);
-    setRefreshCookie(res, refreshToken);
-
+    const result = await authService.register(email, password, name);
+    
+    authService.setRefreshCookie(res, result.refreshToken);
+    
     res.status(201).json({
+      success: true,
       message: 'User registered successfully',
-      user,
-      accessToken,
+      user: result.user,
+      accessToken: result.accessToken,
     });
   } catch (error) {
-    console.error('Registration error:', error);
     next(error);
   }
 };
@@ -108,35 +43,17 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.validated || req.body;
-    const pool = getPool();
-
-
-    const result = await pool.query(
-      'SELECT id, email, name, role, "passwordHash" FROM "User" WHERE email = $1',
-      [email]
-    );
-
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const accessToken = createAccessToken(user);
-    const refreshToken = createRefreshToken(user);
-    setRefreshCookie(res, refreshToken);
-
+    const result = await authService.login(email, password);
+    
+    authService.setRefreshCookie(res, result.refreshToken);
+    
     res.status(200).json({
+      success: true,
       message: 'Logged in successfully',
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
-      accessToken,
+      user: result.user,
+      accessToken: result.accessToken,
     });
   } catch (error) {
-    console.error('Login error:', error);
     next(error);
   }
 };
@@ -145,57 +62,37 @@ export const refresh = async (req, res, next) => {
   try {
     const token = req.cookies.refreshToken;
     if (!token) {
-      return res.status(401).json({ message: 'Refresh token missing' });
+      return res.status(401).json({ 
+        success: false, 
+        error: { code: 'AUTHENTICATION_ERROR', message: 'Refresh token missing' }
+      });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'development-secret');
-    if (!decoded || decoded.type !== 'refresh') {
-      return res.status(403).json({ message: 'Invalid refresh token' });
-    }
+    const result = await authService.refreshAccessToken(token);
+    authService.setRefreshCookie(res, result.refreshToken);
 
-    const pool = getPool();
-    const result = await pool.query(
-      'SELECT id, email, name, role FROM "User" WHERE id = $1',
-      [decoded.id]
-    );
-
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const accessToken = createAccessToken(user);
-    const newRefreshToken = createRefreshToken(user);
-    setRefreshCookie(res, newRefreshToken);
-
-    res.status(200).json({ accessToken });
+    res.status(200).json({ 
+      success: true,
+      accessToken: result.accessToken 
+    });
   } catch (error) {
-    console.error('Refresh error:', error);
     next(error);
   }
 };
 
 export const logout = (req, res) => {
-  res.clearCookie('refreshToken', { httpOnly: true, sameSite: 'lax' });
-  res.status(200).json({ message: 'Logged out successfully' });
+  authService.clearRefreshCookie(res);
+  res.status(200).json({ 
+    success: true,
+    message: 'Logged out successfully' 
+  });
 };
 
 export const currentUser = async (req, res, next) => {
   try {
-    const pool = getPool();
-    const result = await pool.query(
-      'SELECT id, email, name, role FROM "User" WHERE id = $1',
-      [req.user.id]
-    );
-
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.status(200).json({ user });
+    const result = await authService.getCurrentUser(req.user.id);
+    res.status(200).json(result);
   } catch (error) {
-    console.error('Get current user error:', error);
     next(error);
   }
 };

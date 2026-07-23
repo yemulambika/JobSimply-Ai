@@ -74,15 +74,11 @@ export const tailorCustomSchema = z.object({
  */
 export function validateBody(schema) {
   return (req, res, next) => {
-    console.log('[VALIDATION] ========== validateBody START ==========');
-    console.log('[VALIDATION] req.body:', JSON.stringify(req.body).substring(0, 500));
     try {
       const parsed = schema.parse(req.body || {});
       req.validated = parsed;
-      console.log('[VALIDATION] Validation PASSED, fields:', Object.keys(parsed));
       next();
     } catch (err) {
-      console.log('[VALIDATION] Validation FAILED:', err.message);
       if (err instanceof z.ZodError) {
         const fieldErrors = {};
         for (const issue of err.issues) {
