@@ -282,6 +282,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true });
       return true;
       
+    case 'START_AUTOFILL':
+      console.log('[CONTENT] START_AUTOFILL received');
+      // TODO: Implement autofill logic
+      sendResponse({ success: true, message: 'Autofill started' });
+      return true;
+      
     default:
       return true;
   }
@@ -430,17 +436,43 @@ function extractNaukriJob() {
 }
 
 function extractLinkedInJob() {
+  console.log('[CONTENT] Extracting LinkedIn job from:', window.location.href);
+  
   const title = extractWithFallbacks([
-    '.jobs-unified-top-card__job-title', '.job-title', 'h1'
+    '.jobs-unified-top-card__job-title',
+    '.job-details-jobs-unified-top-card__job-title',
+    '.jobs-unified-top-card__title',
+    '.job-title',
+    'h1'
   ], [() => getMetaContent('title')]);
   
+  console.log('[CONTENT] LinkedIn title extraction result:', title ? 'FOUND' : 'NOT FOUND');
+  
   const company = extractWithFallbacks([
-    '.jobs-unified-top-card__company-name a', '.company-name', 'a[data-control-name="company_link"]'
+    '.jobs-unified-top-card__company-name a',
+    '.job-details-jobs-unified-top-card__company-name',
+    '.jobs-unified-top-card__subtitle',
+    '.company-name',
+    'a[data-control-name="company_link"]'
   ], [() => getMetaContent('company')]);
   
-  const location = extractWithFallbacks(['.jobs-unified-top-card__job-location', '.location']);
-  const description = extractWithFallbacks(['.jobs-description__content', '.job-description']);
-  const salary = extractWithFallbacks(['.jobs-unified-top-card__salary', '.salary']);
+  console.log('[CONTENT] LinkedIn company extraction result:', company ? 'FOUND' : 'NOT FOUND');
+  
+  const location = extractWithFallbacks([
+    '.jobs-unified-top-card__job-location',
+    '.job-details-jobs-unified-top-card__location',
+    '.location'
+  ]);
+  const description = extractWithFallbacks([
+    '.jobs-description__content',
+    '.job-details-jobs-unified-top-card__description',
+    '.job-description'
+  ]);
+  const salary = extractWithFallbacks([
+    '.jobs-unified-top-card__salary',
+    '.job-details-jobs-unified-top-card__salary',
+    '.salary'
+  ]);
   const employmentType = extractEmploymentType();
   const workMode = extractWorkMode();
   const requiredSkills = extractSkillsFromDescription(description);

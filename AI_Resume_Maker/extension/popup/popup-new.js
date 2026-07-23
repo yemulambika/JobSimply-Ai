@@ -204,25 +204,46 @@ async function loadCurrentJob() {
     if (!isJobSite) {
       console.log('[POPUP] Active tab is not a job site, clearing cached job');
       state.currentJob = null;
-      // Clear the cached job from storage
       await chrome.runtime.sendMessage({ action: 'CLEAR_CURRENT_JOB' });
       return;
     }
     
-    // Ask the content script for the current job
+    // Ask the content script for the current job with retry logic
     console.log('[POPUP] Querying content script for job on:', activeTab.url);
-    const response = await chrome.tabs.sendMessage(activeTab.id, { action: 'GET_CURRENT_JOB' });
-    
-    if (response?.success && response.job) {
-      console.log('[POPUP] Job found:', response.job.title, '@', response.job.company);
-      state.currentJob = response.job;
+    let job = null;
+    let lastError = null;
+
+    // Retry up to 3 times with 500ms delay to handle content script loading
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await chrome.tabs.sendMessage(activeTab.id, { 
+          action: 'GET_CURRENT_JOB' 
+        });
+        
+        if (response?.success && response.job) {
+          job = response.job;
+          break;
+        }
+      } catch (e) {
+        lastError = e.message;
+        console.log(`[POPUP] Attempt ${attempt} failed:`, e.message);
+        
+        // Wait before retry (except on last attempt)
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
+
+    if (job) {
+      console.log('[POPUP] Job found:', job.title, '@', job.company);
+      state.currentJob = job;
       // Update the cache in background
-      await chrome.runtime.sendMessage({ action: 'SAVE_JOB', job: response.job });
+      await chrome.runtime.sendMessage({ action: 'SAVE_JOB', job });
     } else {
-      console.log('[POPUP] No job detected on current page');
-      state.currentJob = null;
-      // Clear the cached job
-      await chrome.runtime.sendMessage({ action: 'CLEAR_CURRENT_JOB' });
+      console.log('[POPUP] No job detected after retries. Last error:', lastError);
+      // Don't clear cache - keep old job if extraction fails
+      // This prevents showing empty state when content script isn't ready
     }
   } catch (e) {
     console.error('[POPUP] Failed to load current job:', e);
