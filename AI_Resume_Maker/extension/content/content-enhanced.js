@@ -284,14 +284,299 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       
     case 'START_AUTOFILL':
       console.log('[CONTENT] START_AUTOFILL received');
-      // TODO: Implement autofill logic
-      sendResponse({ success: true, message: 'Autofill started' });
-      return true;
+      handleAutofill()
+        .then(result => sendResponse(result))
+        .catch(error => {
+          console.error('[CONTENT] Autofill error:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true; // Keep channel open for async response
       
     default:
       return true;
   }
 });
+
+/**
+ * Handle autofill - detect form fields and fill with profile data
+ */
+async function handleAutofill() {
+  try {
+    // Get user profile from storage
+    const profile = await getUserProfile();
+    if (!profile) {
+      return { success: false, error: 'No profile found. Please set up your profile first.' };
+    }
+    
+    // Detect form fields on the page
+    const fields = detectFormFieldsOnPage();
+    if (fields.length === 0) {
+      return { success: false, error: 'No form fields detected on this page.' };
+    }
+    
+    // Map profile to fields
+    const { filledFields, unfilledFields } = mapProfileToFormFields(profile, fields);
+    
+    // Fill the fields
+    let filledCount = 0;
+    for (const field of filledFields) {
+      const success = fillFormField(field);
+      if (success) filledCount++;
+    }
+    
+    console.log(`[CONTENT] Autofill completed: ${filledCount}/${filledFields.length} fields filled`);
+    
+    return {
+      success: true,
+      filled: filledCount,
+      total: filledFields.length,
+      unfilled: unfilledFields.length,
+      message: `Filled ${filledCount} out of ${filledFields.length} detected fields`
+    };
+  } catch (error) {
+    console.error('[CONTENT] Autofill failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get user profile from chrome storage
+ */
+async function getUserProfile() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['userProfile'], (result) => {
+      resolve(result.userProfile || null);
+    });
+  });
+}
+
+/**
+ * Detect form fields on the current page
+ */
+function detectFormFieldsOnPage() {
+  const fields = [];
+  const inputs = document.querySelectorAll('input, select, textarea');
+  
+  for (const input of inputs) {
+    // Skip hidden fields
+    if (input.type === 'hidden') continue;
+    if (!isElementVisible(input)) continue;
+    
+    const field = {
+      element: input,
+      type: input.type?.toLowerCase() || 'text',
+      name: input.name || '',
+      id: input.id || '',
+      label: getFieldLabel(input),
+      placeholder: input.placeholder || '',
+      required: input.required || input.hasAttribute('aria-required')
+    };
+    
+    // Categorize the field
+    field.category = categorizeField(field);
+    
+    fields.push(field);
+  }
+  
+  return fields;
+}
+
+/**
+ * Get label text for an input
+ */
+function getFieldLabel(input) {
+  // Try label for attribute
+  if (input.id) {
+    const label = document.querySelector(`label[for="${input.id}"]`);
+    if (label) return label.textContent.trim();
+  }
+  
+  // Try aria-label
+  if (input.getAttribute('aria-label')) {
+    return input.getAttribute('aria-label');
+  }
+  
+  // Try parent label
+  const parent = input.closest('label');
+  if (parent) return parent.textContent.trim();
+  
+  // Try closest wrapper
+  const wrapper = input.closest('div');
+  if (wrapper) {
+    const text = wrapper.textContent.split('\n')[0].trim();
+    if (text && text.length < 100) return text;
+  }
+  
+  return '';
+}
+
+/**
+ * Check if element is visible
+ */
+function isElementVisible(el) {
+  if (!el) return false;
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && 
+         style.visibility !== 'hidden' && 
+         style.opacity !== '0' &&
+         el.offsetParent !== null;
+}
+
+/**
+ * Categorize field based on attributes
+ */
+function categorizeField(field) {
+  const searchText = `${field.name} ${field.label} ${field.placeholder}`.toLowerCase();
+  
+  // Personal
+  if (/^(first\s*name|given\s*name|forename)$/i.test(searchText)) return 'firstName';
+  if (/^(last\s*name|family\s*name|surname)$/i.test(searchText)) return 'lastName';
+  if (/^(full\s*name|complete\s*name|name)$/i.test(searchText)) return 'fullName';
+  if (/^(email|e-?mail)$/i.test(searchText)) return 'email';
+  if (/^(phone|telephone|mobile|cell)$/i.test(searchText)) return 'phone';
+  
+  // Location
+  if (/^(street\s*address|address|address\s*line\s*1)$/i.test(searchText)) return 'address';
+  if (/^(address\s*line\s*2|apt|suite|unit)$/i.test(searchText)) return 'addressLine2';
+  if (/^(city|town|municipality)$/i.test(searchText)) return 'city';
+  if (/^(state|province|region|county)$/i.test(searchText)) return 'state';
+  if (/^(zip|zip\s*code|postal\s*code|pin)$/i.test(searchText)) return 'zip';
+  if (/^(country|nation)$/i.test(searchText)) return 'country';
+  
+  // Professional
+  if (/^(linkedin|linked\s*in)$/i.test(searchText)) return 'linkedin';
+  if (/^(github|git\s*hub)$/i.test(searchText)) return 'github';
+  if (/^(portfolio|website|personal\s*site)$/i.test(searchText)) return 'portfolio';
+  if (/^(current\s*company|current\s*employer|present\s*employer)$/i.test(searchText)) return 'currentCompany';
+  if (/^(job\s*title|position|role|designation)$/i.test(searchText)) return 'jobTitle';
+  if (/^(total\s*experience|years?\s*of\s*experience)$/i.test(searchText)) return 'yearsExperience';
+  
+  // Education
+  if (/^(school|university|college|institution)$/i.test(searchText)) return 'school';
+  if (/^(degree|qualification|bachelor|master)$/i.test(searchText)) return 'degree';
+  if (/^(field\s*of\s*study|major|specialization)$/i.test(searchText)) return 'fieldOfStudy';
+  if (/^(graduation\s*year|passing\s*year|year\s*of\s*passing)$/i.test(searchText)) return 'graduationYear';
+  
+  // Skills
+  if (/^(skills|technical\s*skills|competencies)$/i.test(searchText)) return 'skills';
+  
+  // Salary
+  if (/^(current\s*salary|present\s*salary|ctc)$/i.test(searchText)) return 'currentSalary';
+  if (/^(expected\s*salary|expected\s*ctc|desired\s*salary)$/i.test(searchText)) return 'expectedSalary';
+  if (/^(notice\s*period|serving\s*notice|immediate)$/i.test(searchText)) return 'noticePeriod';
+  
+  // Input type fallback
+  if (field.type === 'email') return 'email';
+  if (field.type === 'tel') return 'phone';
+  if (field.type === 'url') return 'url';
+  
+  return 'text';
+}
+
+/**
+ * Map profile data to form fields
+ */
+function mapProfileToFormFields(profile, fields) {
+  const filledFields = [];
+  const unfilledFields = [];
+  
+  for (const field of fields) {
+    const value = getProfileValueForField(profile, field.category);
+    if (value) {
+      filledFields.push({ ...field, mappedValue: value });
+    } else {
+      unfilledFields.push(field);
+    }
+  }
+  
+  return { filledFields, unfilledFields };
+}
+
+/**
+ * Get profile value for field category
+ */
+function getProfileValueForField(profile, category) {
+  const mappings = {
+    firstName: profile.firstName || profile.name?.split(' ')[0],
+    lastName: profile.lastName || profile.name?.split(' ').slice(1).join(' '),
+    fullName: profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
+    email: profile.email,
+    phone: profile.phone,
+    address: profile.address,
+    city: profile.city,
+    state: profile.state,
+    zip: profile.zip,
+    country: profile.country,
+    linkedin: profile.linkedin,
+    github: profile.github,
+    portfolio: profile.portfolio,
+    currentCompany: profile.currentCompany,
+    jobTitle: profile.designation,
+    yearsExperience: profile.yearsExperience,
+    school: profile.education?.[0]?.school,
+    degree: profile.education?.[0]?.degree,
+    fieldOfStudy: profile.education?.[0]?.field,
+    graduationYear: profile.education?.[0]?.year,
+    currentSalary: profile.currentSalary,
+    expectedSalary: profile.expectedSalary,
+    noticePeriod: profile.noticePeriod,
+    skills: Array.isArray(profile.skills) ? profile.skills.join(', ') : profile.skills
+  };
+  
+  return mappings[category] || null;
+}
+
+/**
+ * Fill a form field with value
+ */
+function fillFormField(field) {
+  const { element, type, mappedValue } = field;
+  if (!element || !mappedValue) return false;
+  
+  try {
+    // Focus the element first
+    element.focus();
+    
+    if (type === 'select-one' || type === 'select') {
+      return fillSelectField(element, mappedValue);
+    }
+    
+    // Clear existing value
+    element.value = '';
+    
+    // Set new value
+    element.value = mappedValue;
+    
+    // Trigger events for reactivity
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    element.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    return true;
+  } catch (error) {
+    console.error('[CONTENT] Failed to fill field:', error);
+    return false;
+  }
+}
+
+/**
+ * Fill a select field by finding matching option
+ */
+function fillSelectField(select, value) {
+  const options = select.querySelectorAll('option');
+  const normalizedValue = value.toLowerCase().trim();
+  
+  for (const option of options) {
+    if (option.value.toLowerCase().includes(normalizedValue) ||
+        option.textContent.toLowerCase().includes(normalizedValue)) {
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+  }
+  
+  return false;
+}
 
 // =============================================
 // JOB EXTRACTION
@@ -310,6 +595,8 @@ function extractJobData() {
     job = extractLinkedInJob();
   } else if (hostname.includes('indeed.com')) {
     job = extractIndeedJob();
+  } else if (hostname.includes('glassdoor.com')) {
+    job = extractGlassdoorJob();
   } else if (hostname.includes('wellfound.com')) {
     job = extractWellfoundJob();
   } else if (hostname.includes('greenhouse.io')) {
@@ -534,6 +821,65 @@ function extractIndeedJob() {
     preferredSkills: [],
     keywords: extractKeywords(description),
     source: 'indeed', 
+    jobUrl: window.location.href, 
+    companyLogo: '',
+    postedDate: '',
+    extractedAt: new Date().toISOString()
+  };
+}
+
+function extractGlassdoorJob() {
+  // Glassdoor job pages have specific selectors
+  const title = extractWithFallbacks([
+    '[data-test="jobTitle"]',
+    '.jobTitle',
+    'h1[class*="title"]',
+    'h1'
+  ], [() => getMetaContent('title')]);
+  
+  const company = extractWithFallbacks([
+    '[data-test="employer-name"]',
+    '.employerName',
+    '.company-name',
+    '[data-test="company-name"]'
+  ], [() => getMetaContent('company')]);
+  
+  const location = extractWithFallbacks([
+    '[data-test="location"]',
+    '.location',
+    '.job-location'
+  ]);
+  
+  const description = extractWithFallbacks([
+    '[data-test="job-description-content"]',
+    '.jobDescription',
+    '.description',
+    '#JobDescription'
+  ]);
+  
+  const salary = extractWithFallbacks([
+    '[data-test="salary"]',
+    '.salary',
+    '.pay'
+  ]);
+  
+  const requiredSkills = extractSkillsFromDescription(description);
+
+  if (!title || !company) return null;
+
+  return {
+    title: title.trim(), 
+    company: company.trim(), 
+    location: (location || '').trim(),
+    salary: (salary || '').trim(), 
+    experience: '',
+    description: (description || '').trim(), 
+    responsibilities: (description || '').trim(),
+    qualifications: '',
+    requiredSkills: requiredSkills,
+    preferredSkills: [],
+    keywords: extractKeywords(description),
+    source: 'glassdoor', 
     jobUrl: window.location.href, 
     companyLogo: '',
     postedDate: '',

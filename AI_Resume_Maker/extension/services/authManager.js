@@ -1,7 +1,8 @@
 // Enhanced Auth Manager - Handles JWT, refresh tokens, and session sync
 // Manages authentication state for both extension and website
 
-const API_BASE = 'http://localhost:5000';
+import { getApiBase } from './config.js';
+
 const REFRESH_ENDPOINT = '/auth/refresh';
 const SESSION_ENDPOINT = '/auth/session';
 
@@ -134,7 +135,7 @@ export async function isAuthenticated() {
  */
 export async function getSession() {
   try {
-    const response = await fetch(`${API_BASE}${SESSION_ENDPOINT}`, {
+    const response = await fetch(`${getApiBase()}${SESSION_ENDPOINT}`, {
       method: 'GET',
       credentials: 'include',
       headers: {
@@ -167,7 +168,7 @@ export async function getSession() {
  */
 export async function refreshToken() {
   try {
-    const response = await fetch(`${API_BASE}${REFRESH_ENDPOINT}`, {
+    const response = await fetch(`${getApiBase()}${REFRESH_ENDPOINT}`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -233,7 +234,7 @@ export async function setAuth(accessToken, user) {
 export async function logout() {
   try {
     // Call backend logout endpoint
-    await fetch(`${API_BASE}/auth/logout`, {
+    await fetch(`${getApiBase()}/auth/logout`, {
       method: 'POST',
       credentials: 'include'
     });
