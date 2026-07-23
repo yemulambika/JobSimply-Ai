@@ -39,7 +39,18 @@ chrome.runtime.onStartup.addListener(async () => {
 
 // Message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  handleMessage(request, sender).then(sendResponse);
+  console.log('[BACKGROUND] Received message:', request.action, 'from:', sender.tab?.id || 'popup/extension');
+  
+  handleMessage(request, sender)
+    .then(data => {
+      console.log('[BACKGROUND] Sending response for:', request.action);
+      sendResponse(data);
+    })
+    .catch(error => {
+      console.error('[BACKGROUND] Error handling message:', error);
+      sendResponse({ success: false, message: error.message });
+    });
+  
   return true; // Keep channel open for async response
 });
 

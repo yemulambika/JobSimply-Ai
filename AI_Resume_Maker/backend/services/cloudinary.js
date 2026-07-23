@@ -32,11 +32,11 @@ export async function uploadToCloudinary(buffer, originalName) {
         public_id: publicId,
         format: 'pdf',
         type: 'upload',
-        access_mode: 'public',
       },
       (error, result) => {
         if (error) {
-          return reject(error);
+          console.error('[CLOUDINARY] Upload error:', error);
+          return reject(new Error(`Cloudinary upload failed: ${error.message}`));
         }
         resolve({
           secure_url: result.secure_url,

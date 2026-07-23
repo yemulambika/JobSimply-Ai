@@ -31,7 +31,6 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { resumeApi } from '../services/resumeApi';
-import type { ResumeJSON } from '../types/resume';
 
 const { Header, Content, Sider } = Layout;
 const { TextArea } = Input;

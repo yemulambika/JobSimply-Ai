@@ -8,41 +8,402 @@
 </head>
 <body>
   <div id="app">
+    <!-- Header -->
     <header class="header">
-      <div class="logo">✨</div>
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
       <h1 class="title">JobSimply</h1>
+      <div class="header-actions">
+        <button id="theme-toggle-btn" class="icon-btn" title="Toggle theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button id="settings-btn" class="icon-btn" title="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6m4.22-10.22l4.24-4.24M6.34 6.34L2.1 2.1m17.8 17.8l-4.24-4.24M6.34 17.66l-4.24 4.24M23 12h-6m-6 0H1m20.07-4.93l-4.24 4.24M6.34 6.34l-4.24-4.24"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
     <!-- Not Logged In State -->
     <div id="auth-section" class="section">
-      <p class="auth-message">Please sign in to JobSimply</p>
-      <button id="open-website-btn" class="btn primary">Open JobSimply</button>
+      <div class="auth-card">
+        <div class="auth-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+        </div>
+        <h2 class="auth-title">Welcome to JobSimply</h2>
+        <p class="auth-message">Sign in to access AI-powered job application tools</p>
+        <button id="open-website-btn" class="btn primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          Open JobSimply
+        </button>
+      </div>
     </div>
 
-    <!-- Logged In State - Auto detects job -->
+    <!-- Logged In State -->
     <div id="dashboard-section" class="section hidden">
-      <!-- Job Info - Auto detected -->
-      <div id="job-card" class="job-card hidden">
-        <h2 id="job-title" class="job-title">No job detected</h2>
-        <p id="job-company" class="job-company"></p>
-        <p id="job-location" class="job-location"></p>
-        <p id="job-salary" class="job-salary"></p>
-        <p id="job-experience" class="job-experience"></p>
-        <div id="job-skills-section" class="job-skills-section hidden">
-          <h3 class="section-title">Skills Required</h3>
-          <ul id="job-skills" class="skills-list"></ul>
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="autofill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          Autofill
+        </button>
+        <button class="tab" data-tab="score">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          Score
+        </button>
+        <button class="tab" data-tab="saved">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+          Saved
+        </button>
+        <button class="tab" data-tab="tracker">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          Tracker
+        </button>
+        <button class="tab" data-tab="ai">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+            <circle cx="8" cy="14" r="1"/>
+            <circle cx="16" cy="14" r="1"/>
+          </svg>
+          AI
+        </button>
+        <button class="tab" data-tab="profile">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Profile
+        </button>
+      </div>
+
+      <!-- Tab Content: Autofill -->
+      <div id="tab-autofill" class="tab-content active">
+        <div class="info-banner">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <div class="info-text">
+            <strong>AI Autofill</strong>
+            <p>Automatically fill job applications with your profile data</p>
+          </div>
         </div>
-        <p id="job-url" class="job-url"></p>
+
+        <!-- Current Job Detection -->
+        <div id="detected-job-section" class="hidden">
+          <div class="detected-job-card">
+            <div class="detected-job-header">
+              <div class="detected-job-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                </svg>
+              </div>
+              <div class="detected-job-info">
+                <div class="detected-job-title" id="detected-job-title">Job Title</div>
+                <div class="detected-job-company" id="detected-job-company">Company</div>
+              </div>
+            </div>
+            <div class="detected-job-meta">
+              <span class="meta-item" id="detected-job-location">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                Location
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div id="autofill-progress" class="hidden">
+          <div class="progress-header">
+            <div class="progress-title">Autofill Progress</div>
+            <div class="progress-stats">
+              <span class="stat-item">
+                <span class="stat-label">Completed</span>
+                <span class="stat-value" id="progress-completed">0</span>
+              </span>
+              <span class="stat-item">
+                <span class="stat-label">Remaining</span>
+                <span class="stat-value" id="progress-remaining">0</span>
+              </span>
+              <span class="stat-item">
+                <span class="stat-label">AI Generated</span>
+                <span class="stat-value" id="progress-ai">0</span>
+              </span>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button id="start-autofill-btn" class="btn primary large">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Start Autofill
+          </button>
+          <button id="preview-answers-btn" class="btn secondary hidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Preview Answers
+          </button>
+          <button id="stop-autofill-btn" class="btn secondary hidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="6" width="12" height="12"/>
+            </svg>
+            Stop
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Score -->
+      <div id="tab-score" class="tab-content">
+        <div class="score-header">
+          <h3 class="score-title">Resume Score</h3>
+          <p class="score-subtitle">Analyze your resume against job requirements</p>
+        </div>
+
+        <!-- Score Circle -->
+        <div class="score-circle-container">
+          <div class="score-circle">
+            <svg class="score-ring" width="120" height="120">
+              <circle class="score-ring-bg" cx="60" cy="60" r="54"/>
+              <circle class="score-ring-fill" cx="60" cy="60" r="54" id="score-ring"/>
+            </svg>
+            <div class="score-value">
+              <span class="score-number" id="ats-score">0</span>
+              <span class="score-label">ATS</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Breakdown -->
+        <div class="score-breakdown">
+          <div class="score-item">
+            <div class="score-item-header">
+              <span class="score-item-label">Keyword Match</span>
+              <span class="score-item-value" id="keyword-match">0%</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" id="keyword-bar" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="score-item">
+            <div class="score-item-header">
+              <span class="score-item-label">Experience Match</span>
+              <span class="score-item-value" id="experience-match">0%</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" id="experience-bar" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="score-item">
+            <div class="score-item-header">
+              <span class="score-item-label">Education Match</span>
+              <span class="score-item-value" id="education-match">0%</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" id="education-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Keywords Section -->
+        <div class="keywords-section">
+          <div class="keywords-header">
+            <h4 class="keywords-title">Missing Keywords</h4>
+            <button class="keywords-action" id="add-keywords-btn">Add All</button>
+          </div>
+          <div class="keywords-list" id="missing-keywords">
+            <div class="empty-state-small">No keywords missing</div>
+          </div>
+        </div>
+
+        <button id="analyze-resume-btn" class="btn primary" style="margin-top: 16px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          Analyze Resume
+        </button>
+      </div>
+
+      <!-- Tab Content: Saved Jobs -->
+      <div id="tab-saved" class="tab-content">
+        <div class="saved-header">
+          <h3 class="saved-title">Saved Jobs</h3>
+          <span class="saved-count" id="saved-count">0</span>
+        </div>
+        <div class="saved-jobs-list" id="saved-jobs-list">
+          <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+            <h3>No Saved Jobs</h3>
+            <p>Save jobs from job boards to track them here</p>
+            <button id="find-jobs-btn" class="btn primary">Find Jobs</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Job Tracker -->
+      <div id="tab-tracker" class="tab-content">
+        <div class="tracker-header">
+          <h3 class="tracker-title">Job Tracker</h3>
+          <span class="tracker-count" id="tracker-count">0 Applied</span>
+        </div>
+        <div class="tracker-board">
+          <div class="tracker-column">
+            <div class="tracker-column-header">
+              <span class="tracker-column-title">Saved</span>
+              <span class="tracker-column-count" id="tracker-saved">0</span>
+            </div>
+            <div class="tracker-items" id="tracker-saved-items"></div>
+          </div>
+          <div class="tracker-column">
+            <div class="tracker-column-header">
+              <span class="tracker-column-title">Applied</span>
+              <span class="tracker-column-count" id="tracker-applied">0</span>
+            </div>
+            <div class="tracker-items" id="tracker-applied-items"></div>
+          </div>
+          <div class="tracker-column">
+            <div class="tracker-column-header">
+              <span class="tracker-column-title">Interview</span>
+              <span class="tracker-column-count" id="tracker-interview">0</span>
+            </div>
+            <div class="tracker-items" id="tracker-interview-items"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: AI Assistant -->
+      <div id="tab-ai" class="tab-content">
+        <div class="ai-header">
+          <h3 class="ai-title">AI Assistant</h3>
+          <p class="ai-subtitle">Ask anything about your job search</p>
+        </div>
+        <div class="ai-chat" id="ai-chat">
+          <div class="ai-messages" id="ai-messages">
+            <div class="ai-message ai-message-assistant">
+              <div class="ai-message-avatar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/>
+                </svg>
+              </div>
+              <div class="ai-message-content">
+                <p>Hi! I'm your AI assistant. I can help you with resume improvement, job analysis, interview preparation, and more. What would you like to know?</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ai-input-container">
+          <input type="text" class="ai-input" id="ai-input" placeholder="Ask me anything...">
+          <button class="ai-send-btn" id="ai-send-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Profile -->
+      <div id="tab-profile" class="tab-content">
+        <div class="profile-card">
+          <div class="profile-header">
+            <div class="profile-avatar" id="profile-avatar">U</div>
+            <div class="profile-info">
+              <h3 class="profile-name" id="profile-name">User</h3>
+              <p class="profile-email" id="profile-email">user@email.com</p>
+            </div>
+          </div>
+          <div class="profile-stats">
+            <div class="profile-stat">
+              <div class="profile-stat-value" id="profile-resumes">0</div>
+              <div class="profile-stat-label">Resumes</div>
+            </div>
+            <div class="profile-stat">
+              <div class="profile-stat-value" id="profile-applications">0</div>
+              <div class="profile-stat-label">Applications</div>
+            </div>
+            <div class="profile-stat">
+              <div class="profile-stat-value" id="profile-score">0%</div>
+              <div class="profile-stat-label">Avg Score</div>
+            </div>
+          </div>
+          <button id="edit-profile-btn" class="btn secondary full-width" style="margin-top: 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit Profile
+          </button>
+        </div>
+      </div>
+
+      <!-- Job Card (shown when job detected) -->
+      <div id="job-card" class="job-card hidden">
+        <div class="job-header">
+          <div>
+            <h3 class="job-title" id="job-title">Job Title</h3>
+            <p class="job-company" id="job-company">Company Name</p>
+          </div>
+          <span class="job-badge" id="job-badge">New</span>
+        </div>
+        <p class="job-location" id="job-location">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span id="job-location-text">Location</span>
+        </p>
+        <div class="job-actions">
+          <button id="customize-resume-btn" class="btn primary small">Customize Resume</button>
+          <button id="open-jobs-btn" class="btn secondary small">View All Jobs</button>
+        </div>
       </div>
 
       <!-- Status Messages -->
       <div id="status-message" class="status-message hidden"></div>
-      
-      <!-- Action Buttons -->
-      <div class="actions">
-        <button id="customize-resume-btn" class="btn primary hidden">Customize Resume</button>
-        <button id="open-jobs-btn" class="btn secondary">Open Jobs Page</button>
-      </div>
     </div>
   </div>
 

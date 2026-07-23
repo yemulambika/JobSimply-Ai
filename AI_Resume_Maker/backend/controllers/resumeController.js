@@ -41,8 +41,32 @@ export const uploadResume = async (req, res, next) => {
       return res.status(400).json({ message: 'No PDF file uploaded' });
     }
 
-    const cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
-    const fileUrl = cloudinaryResult.secure_url;
+    let fileUrl = null;
+    try {
+      const cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+      fileUrl = cloudinaryResult.secure_url;
+      console.log('[RESUME] Cloudinary upload successful:', fileUrl);
+    } catch (cloudinaryError) {
+      console.error('[RESUME] Cloudinary upload failed:', cloudinaryError.message);
+      // Fallback: store locally if Cloudinary fails
+      const fs = await import('fs');
+      const path = await import('path');
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      
+      try {
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const filename = `resume_${Date.now()}_${req.user.id}.pdf`;
+        const filepath = path.join(uploadsDir, filename);
+        fs.writeFileSync(filepath, req.file.buffer);
+        fileUrl = `/uploads/${filename}`;
+        console.log('[RESUME] Saved to local storage:', fileUrl);
+      } catch (localError) {
+        console.error('[RESUME] Local save failed:', localError);
+        throw new Error(`Failed to save resume: ${cloudinaryError.message}`);
+      }
+    }
 
     const originalText = await resumeParserService.extractTextFromPdf(req.file.buffer);
     let parsedData;
@@ -237,8 +261,32 @@ export const replaceResumeFile = async (req, res, next) => {
       return res.status(400).json({ message: 'No PDF file uploaded' });
     }
 
-    const cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
-    const fileUrl = cloudinaryResult.secure_url;
+    let fileUrl = null;
+    try {
+      const cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+      fileUrl = cloudinaryResult.secure_url;
+      console.log('[RESUME] Cloudinary upload successful:', fileUrl);
+    } catch (cloudinaryError) {
+      console.error('[RESUME] Cloudinary upload failed:', cloudinaryError.message);
+      // Fallback: store locally if Cloudinary fails
+      const fs = await import('fs');
+      const path = await import('path');
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      
+      try {
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        const filename = `resume_${Date.now()}_${req.user.id}.pdf`;
+        const filepath = path.join(uploadsDir, filename);
+        fs.writeFileSync(filepath, req.file.buffer);
+        fileUrl = `/uploads/${filename}`;
+        console.log('[RESUME] Saved to local storage:', fileUrl);
+      } catch (localError) {
+        console.error('[RESUME] Local save failed:', localError);
+        throw new Error(`Failed to save resume: ${cloudinaryError.message}`);
+      }
+    }
 
     const originalText = await resumeParserService.extractTextFromPdf(req.file.buffer);
     let parsedData;
