@@ -140,6 +140,10 @@ async function handleMessage(request, sender) {
       }
       return { success: true };
       
+    case 'CLEAR_CURRENT_JOB':
+      await chrome.storage.local.remove('currentJob');
+      return { success: true };
+      
     case 'GET_SAVED_JOBS':
       return await getStorageItem('savedJobs') || [];
       

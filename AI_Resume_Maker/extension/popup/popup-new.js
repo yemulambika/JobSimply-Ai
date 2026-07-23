@@ -186,9 +186,46 @@ async function loadData() {
 
 async function loadCurrentJob() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'GET_CURRENT_JOB' });
-    state.currentJob = response || null;
+    // Query the active tab to get current page's job
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!activeTab) {
+      console.log('[POPUP] No active tab found');
+      state.currentJob = null;
+      return;
+    }
+    
+    // Check if the active tab is a job site we support
+    const jobSites = ['naukri.com', 'linkedin.com', 'indeed.com', 'glassdoor.com', 
+                      'wellfound.com', 'greenhouse.io', 'lever.co', 'workday.com', 
+                      'ashby.com', 'smartrecruiters.com', 'bamboohr.com'];
+    const isJobSite = jobSites.some(site => activeTab.url?.includes(site));
+    
+    if (!isJobSite) {
+      console.log('[POPUP] Active tab is not a job site, clearing cached job');
+      state.currentJob = null;
+      // Clear the cached job from storage
+      await chrome.runtime.sendMessage({ action: 'CLEAR_CURRENT_JOB' });
+      return;
+    }
+    
+    // Ask the content script for the current job
+    console.log('[POPUP] Querying content script for job on:', activeTab.url);
+    const response = await chrome.tabs.sendMessage(activeTab.id, { action: 'GET_CURRENT_JOB' });
+    
+    if (response?.success && response.job) {
+      console.log('[POPUP] Job found:', response.job.title, '@', response.job.company);
+      state.currentJob = response.job;
+      // Update the cache in background
+      await chrome.runtime.sendMessage({ action: 'SAVE_JOB', job: response.job });
+    } else {
+      console.log('[POPUP] No job detected on current page');
+      state.currentJob = null;
+      // Clear the cached job
+      await chrome.runtime.sendMessage({ action: 'CLEAR_CURRENT_JOB' });
+    }
   } catch (e) {
+    console.error('[POPUP] Failed to load current job:', e);
     state.currentJob = null;
   }
 }
